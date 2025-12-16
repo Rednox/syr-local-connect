@@ -1,0 +1,123 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "SYR Connect Local Server Setup",
+        "description": "Configure the local SYR Connect server that will handle communication with your SYR LEX Plus devices.",
+        "data": {
+          "http_port": "HTTP Port",
+          "https_port": "HTTPS Port",
+          "use_https": "Enable HTTPS"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to start server",
+      "invalid_port": "Invalid port number",
+      "port_in_use": "Port already in use",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "SYR Connect Local server is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "SYR Connect Local Server Options",
+        "description": "Configure server options",
+        "data": {
+          "http_port": "HTTP Port",
+          "https_port": "HTTPS Port",
+          "use_https": "Enable HTTPS"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "inlet_hardness": {
+        "name": "Inlet water hardness"
+      },
+      "outlet_hardness": {
+        "name": "Outlet water hardness"
+      },
+      "salt_level": {
+        "name": "Salt level"
+      },
+      "capacity_remaining": {
+        "name": "Capacity remaining"
+      },
+      "water_flow": {
+        "name": "Water flow"
+      },
+      "pressure": {
+        "name": "Water pressure"
+      },
+      "consumption_today": {
+        "name": "Water consumption today"
+      },
+      "consumption_total": {
+        "name": "Total water consumption"
+      },
+      "last_regeneration": {
+        "name": "Last regeneration"
+      },
+      "total_regenerations": {
+        "name": "Total regenerations"
+      },
+      "firmware_version": {
+        "name": "Firmware version"
+      },
+      "temperature": {
+        "name": "Water temperature"
+      }
+    },
+    "binary_sensor": {
+      "regeneration_active": {
+        "name": "Regeneration active"
+      },
+      "flow_active": {
+        "name": "Flow active"
+      },
+      "alarm": {
+        "name": "Alarm"
+      }
+    },
+    "switch": {
+      "power": {
+        "name": "Power"
+      }
+    }
+  },
+  "services": {
+    "start_regeneration": {
+      "name": "Start regeneration",
+      "description": "Start an immediate regeneration cycle on the device",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "The SYR device to regenerate"
+        }
+      }
+    },
+    "update_parameter": {
+      "name": "Update parameter",
+      "description": "Update a device parameter",
+      "fields": {
+        "device_id": {
+          "name": "Device",
+          "description": "The SYR device to update"
+        },
+        "parameter": {
+          "name": "Parameter",
+          "description": "Parameter name (e.g., setRDO for salt dosage)"
+        },
+        "value": {
+          "name": "Value",
+          "description": "Parameter value"
+        }
+      }
+    }
+  }
+}

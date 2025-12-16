@@ -1,0 +1,37 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "SYR Connect Local Server Setup",
+        "description": "Configure the local SYR Connect server that will handle communication with your SYR LEX Plus devices.",
+        "data": {
+          "http_port": "HTTP Port",
+          "https_port": "HTTPS Port",
+          "use_https": "Enable HTTPS"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to start server",
+      "invalid_port": "Invalid port number",
+      "port_in_use": "Port already in use",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "SYR Connect Local server is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "SYR Connect Local Server Options",
+        "description": "Configure server options",
+        "data": {
+          "http_port": "HTTP Port",
+          "https_port": "HTTPS Port",
+          "use_https": "Enable HTTPS"
+        }
+      }
+    }
+  }
+}
