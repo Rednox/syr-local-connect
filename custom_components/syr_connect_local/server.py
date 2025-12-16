@@ -3,7 +3,6 @@ import asyncio
 import logging
 import ssl
 from typing import Any, Callable
-from urllib.parse import parse_qs
 
 from aiohttp import web
 

@@ -78,7 +78,8 @@ async def async_setup_entry(
                 PROPERTY_INLET_HARDNESS,
                 "Inlet Water Hardness",
                 "°dH",
-                SensorDeviceClass.ENUM,
+                None,
+                SensorStateClass.MEASUREMENT,
             )
         )
         entities.append(
@@ -88,7 +89,8 @@ async def async_setup_entry(
                 PROPERTY_OUTLET_HARDNESS,
                 "Outlet Water Hardness",
                 "°dH",
-                SensorDeviceClass.ENUM,
+                None,
+                SensorStateClass.MEASUREMENT,
             )
         )
 

@@ -43,8 +43,9 @@ async def async_setup_entry(
         if not device_data:
             continue
 
-        # Power switch
-        entities.append(SyrPowerSwitch(coordinator, serial))
+        # Note: Power switch is experimental and may not work on all devices
+        # Commenting out until it can be properly tested
+        # entities.append(SyrPowerSwitch(coordinator, serial))
 
     async_add_entities(entities)
 
@@ -120,7 +121,11 @@ class SyrSwitch(CoordinatorEntity, SwitchEntity):
 
 
 class SyrPowerSwitch(SyrSwitch):
-    """Power switch for the device."""
+    """Power switch for the device.
+    
+    Note: The setPST setter is not officially documented in the protocol.
+    This switch is experimental and may not work on all firmware versions.
+    """
 
     def __init__(
         self,
@@ -128,12 +133,12 @@ class SyrPowerSwitch(SyrSwitch):
         serial: str,
     ) -> None:
         """Initialize the power switch."""
-        # Note: There's no documented setter for power state in the protocol
-        # This is a placeholder that queues setPST command
+        # Note: setPST is not documented in the SYR Connect protocol
+        # This is an experimental feature
         super().__init__(
             coordinator,
             serial,
             PROPERTY_POWER_STATE,
             "Power",
-            "setPST",  # Assumed setter command
+            "setPST",  # Experimental setter command
         )

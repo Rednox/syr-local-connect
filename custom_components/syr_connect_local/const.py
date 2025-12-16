@@ -90,7 +90,6 @@ PROPERTY_INCOMPLETE_REGEN: Final = "getINR"  # Incomplete regeneration count
 # Regeneration settings
 PROPERTY_REGEN_MODE: Final = "getRTM"  # Regeneration mode
 PROPERTY_REGEN_TIME_HOUR: Final = "getRTH"  # Regeneration time hour
-PROPERTY_REGEN_TIME_MINUTE: Final = "getRTI"  # Regeneration time minute (reused)
 PROPERTY_REGEN_WEEKDAYS: Final = "getRPW"  # Regeneration weekdays
 PROPERTY_REGEN_PERIOD_DAYS: Final = "getRPD"  # Regeneration period days
 
