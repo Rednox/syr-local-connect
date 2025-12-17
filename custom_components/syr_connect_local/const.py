@@ -144,6 +144,14 @@ SETTER_LEAKAGE_TIME: Final = "setT2"  # Set leakage time
 SETTER_LEAKAGE_TEMP_DISABLE: Final = "setTMP"  # Set temp disable
 SETTER_LEAKAGE_USER_PROFILE: Final = "setUL"  # Set user profile
 
+# Configuration setters
+SETTER_SALT_VOLUME1: Final = "setSV1"  # Set salt volume tank 1 (kg)
+SETTER_SALT_VOLUME2: Final = "setSV2"  # Set salt volume tank 2 (kg)
+SETTER_SALT_VOLUME3: Final = "setSV3"  # Set salt volume tank 3 (kg)
+SETTER_REGEN_PERIOD_DAYS: Final = "setRPD"  # Set regeneration period (days)
+SETTER_REGEN_WEEKDAYS: Final = "setRPW"  # Set regeneration weekdays
+SETTER_REGEN_TIME_HOUR: Final = "setRTH"  # Set regeneration time (hour)
+
 # Basic commands requested on first connection
 BASIC_COMMANDS = [
     PROPERTY_SERIAL,

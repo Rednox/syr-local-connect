@@ -152,5 +152,12 @@ class SyrProtocol:
             except (ValueError, TypeError):
                 return None
         
+        if property_name in ["getRPD", "getRPW"]:
+            # Regeneration period (days) and weekdays
+            try:
+                return int(value)
+            except (ValueError, TypeError):
+                return None
+        
         # Default: return as string
         return value
