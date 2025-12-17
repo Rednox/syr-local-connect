@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  homeassistant:
+    container_name: home-assistant
+    image: homeassistant/home-assistant:latest
+    volumes:
+      - ./homeassistant/config:/config
+      - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro
+    environment:
+      - TZ=Europe/Berlin
+    ports:
+      - "8123:8123"  # Home Assistant web UI
+      - "80:80"      # SYR Connect Local HTTP (optional, can use 8080)
+      - "443:443"    # SYR Connect Local HTTPS (optional)
+    restart: unless-stopped
+    privileged: false
+    cap_add:
+      - NET_ADMIN
+      - NET_BIND_SERVICE
+    networks:
+      - homeassistant
+
+networks:
+  homeassistant:
+    driver: bridge

@@ -1,3 +1,44 @@
+# macOS
+.DS_Store
+
+# Python caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.coverage
+.pytest_cache/
+
+# Virtual environments
+env/
+venv/
+.venv/
+test_env/
+
+# Home Assistant runtime/state
+homeassistant/config/home-assistant.log*
+homeassistant/config/*.log*
+homeassistant/config/.storage/
+homeassistant/config/.cloud/
+homeassistant/config/*.db*
+homeassistant/config/tts/
+homeassistant/deps/
+homeassistant/**/__pycache__/
+homeassistant/config/syr_cert.pem
+homeassistant/config/syr_key.pem
+homeassistant/config/*.pem
+homeassistant/config/*.key
+
+# Secrets (do not commit)
+homeassistant/config/secrets.yaml
+
+# Node modules (if any)
+node_modules/
+
+# Editor/OS junk
+.vscode/
+.idea/
+Thumbs.db
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
