@@ -36,6 +36,15 @@ from .coordinator import SyrConnectLocalCoordinator
 _LOGGER = logging.getLogger(__name__)
 
 
+def _is_tank_available(device_data: dict, salt_volume_property: str, salt_tank_property: str) -> bool:
+    """Check if a tank is available and has non-zero capacity."""
+    return (
+        device_data.get(salt_volume_property) is not None
+        and device_data.get(salt_tank_property) is not None
+        and device_data.get(salt_tank_property) != 0
+    )
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -61,13 +70,13 @@ async def async_setup_entry(
             )
 
         # Only add tank 2 if it exists and is not zero
-        if device_data.get(PROPERTY_SALT_VOLUME2) is not None and device_data.get(PROPERTY_SALT_TANK2) is not None and device_data.get(PROPERTY_SALT_TANK2) != 0:
+        if _is_tank_available(device_data, PROPERTY_SALT_VOLUME2, PROPERTY_SALT_TANK2):
             entities.append(
                 SyrSaltVolumeNumber(coordinator, serial, 2, PROPERTY_SALT_VOLUME2, SETTER_SALT_VOLUME2)
             )
 
         # Only add tank 3 if it exists and is not zero
-        if device_data.get(PROPERTY_SALT_VOLUME3) is not None and device_data.get(PROPERTY_SALT_TANK3) is not None and device_data.get(PROPERTY_SALT_TANK3) != 0:
+        if _is_tank_available(device_data, PROPERTY_SALT_VOLUME3, PROPERTY_SALT_TANK3):
             entities.append(
                 SyrSaltVolumeNumber(coordinator, serial, 3, PROPERTY_SALT_VOLUME3, SETTER_SALT_VOLUME3)
             )
@@ -93,12 +102,12 @@ async def async_setup_entry(
                     SyrSaltVolumeNumber(coordinator, serial, 1, PROPERTY_SALT_VOLUME1, SETTER_SALT_VOLUME1)
                 )
 
-            if device_data.get(PROPERTY_SALT_VOLUME2) is not None and device_data.get(PROPERTY_SALT_TANK2) is not None and device_data.get(PROPERTY_SALT_TANK2) != 0:
+            if _is_tank_available(device_data, PROPERTY_SALT_VOLUME2, PROPERTY_SALT_TANK2):
                 new_entities.append(
                     SyrSaltVolumeNumber(coordinator, serial, 2, PROPERTY_SALT_VOLUME2, SETTER_SALT_VOLUME2)
                 )
 
-            if device_data.get(PROPERTY_SALT_VOLUME3) is not None and device_data.get(PROPERTY_SALT_TANK3) is not None and device_data.get(PROPERTY_SALT_TANK3) != 0:
+            if _is_tank_available(device_data, PROPERTY_SALT_VOLUME3, PROPERTY_SALT_TANK3):
                 new_entities.append(
                     SyrSaltVolumeNumber(coordinator, serial, 3, PROPERTY_SALT_VOLUME3, SETTER_SALT_VOLUME3)
                 )

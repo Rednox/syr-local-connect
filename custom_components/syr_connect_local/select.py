@@ -131,8 +131,12 @@ class SyrRegenWeekdaysSelect(CoordinatorEntity, SelectEntity):
                 value_str = str(value)
                 if value_str in WEEKDAY_VALUES:
                     return WEEKDAY_VALUES[value_str]
-                # If not in predefined options, try to display as custom
-                return f"Custom ({value_str})"
+                # If not in predefined options, log warning and return None
+                # This allows the UI to show "Unknown" state
+                _LOGGER.warning(
+                    "Unknown weekday value %s for device %s. Use service to set custom values.",
+                    value_str, self._serial
+                )
         return None
 
     async def async_select_option(self, option: str) -> None:

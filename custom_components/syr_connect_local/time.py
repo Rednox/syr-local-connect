@@ -128,14 +128,14 @@ class SyrRegenTimeEntity(CoordinatorEntity, TimeEntity):
 
     async def async_set_value(self, value: time) -> None:
         """Set the time value."""
-        # Format as "HH:MM" for protocol
-        # Note: The protocol setRTH typically expects just hours, but we'll send HH:MM
-        time_str = value.strftime("%H:%M")
+        # The protocol setRTH expects the hour value (0-23)
+        # Per the documentation, this sets the regeneration hour
+        hour_str = str(value.hour)
         
-        success = self.coordinator.queue_command(self._serial, SETTER_REGEN_TIME_HOUR, time_str)
+        success = self.coordinator.queue_command(self._serial, SETTER_REGEN_TIME_HOUR, hour_str)
         
         if success:
-            _LOGGER.info("Set regeneration time to %s for device %s", time_str, self._serial)
+            _LOGGER.info("Set regeneration time to hour %s for device %s", hour_str, self._serial)
             # Request immediate update
             await self.coordinator.async_request_refresh()
         else:
