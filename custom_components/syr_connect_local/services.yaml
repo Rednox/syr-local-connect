@@ -1,0 +1,37 @@
+start_regeneration:
+  name: Start regeneration
+  description: Start an immediate regeneration cycle on the device
+  fields:
+    serial:
+      name: Serial number
+      description: Serial number of the device
+      required: true
+      example: "123456789"
+      selector:
+        text:
+
+update_parameter:
+  name: Update parameter
+  description: Update a device parameter
+  fields:
+    serial:
+      name: Serial number
+      description: Serial number of the device
+      required: true
+      example: "123456789"
+      selector:
+        text:
+    parameter:
+      name: Parameter
+      description: Parameter name (e.g., setRDO for salt dosage)
+      required: true
+      example: "setRDO"
+      selector:
+        text:
+    value:
+      name: Value
+      description: Parameter value
+      required: true
+      example: "90"
+      selector:
+        text:
