@@ -6,7 +6,7 @@ Local control for SYR LEX Plus water softening units without cloud dependency.
 
 This integration simulates the SYR Connect cloud server locally, allowing you to:
 
-- Monitor water hardness, salt levels, and consumption
+- Monitor water hardness, resin capacity, salt levels, and consumption
 - Track regeneration cycles
 - Control your SYR device locally
 - Eliminate cloud dependency
@@ -24,7 +24,7 @@ This integration simulates the SYR Connect cloud server locally, allowing you to
 
 ## Features
 
-✅ Comprehensive monitoring (hardness, salt, flow, pressure, consumption)  
+✅ Comprehensive monitoring (hardness, resin, salt, flow, pressure, consumption)  
 ✅ Manual regeneration control  
 ✅ Multi-device support  
 ✅ Automatic device discovery  

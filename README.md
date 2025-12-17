@@ -118,7 +118,9 @@ Once a device is discovered, the following entities are created:
 |--------|-------------|------|
 | `sensor.syr_inlet_water_hardness` | Inlet water hardness | °dH |
 | `sensor.syr_outlet_water_hardness` | Outlet water hardness (residual) | °dH |
-| `sensor.syr_salt_level_tank_1` | Salt level in tank 1 | % |
+| `sensor.syr_resin_capacity_tank_1` | Remaining resin capacity in tank 1 | % |
+| `sensor.syr_salt_volume_tank_1` | Salt stored in tank 1 | kg |
+| `sensor.syr_salt_remaining_days_tank_1` | Days until salt runs out in tank 1 | days |
 | `sensor.syr_capacity_remaining` | Remaining softening capacity | L |
 | `sensor.syr_water_flow` | Current water flow rate | L/min |
 | `sensor.syr_water_pressure` | Water pressure | bar |
@@ -179,12 +181,12 @@ automation:
   - alias: "SYR Low Salt Alert"
     trigger:
       - platform: numeric_state
-        entity_id: sensor.syr_salt_level_tank_1
-        below: 20
+        entity_id: sensor.syr_salt_volume_tank_1
+        below: 2  # Alert when less than 2kg of salt remains
     action:
       - service: notify.mobile_app
         data:
-          message: "SYR water softener salt level is low ({{ states('sensor.syr_salt_level_tank_1') }}%)"
+          message: "SYR water softener salt level is low ({{ states('sensor.syr_salt_volume_tank_1') }}kg)"
 ```
 
 ### Start regeneration at specific time

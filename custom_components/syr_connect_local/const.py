@@ -49,15 +49,16 @@ PROPERTY_OUTLET_HARDNESS: Final = "getOWH"  # Outlet water hardness (residual)
 PROPERTY_HARDNESS_UNIT: Final = "getWHU"  # Water hardness unit (0=°dH, 1=°fH, 2=°eH)
 
 # Salt levels (up to 3 tanks)
-PROPERTY_SALT_TANK1: Final = "getCS1"  # Salt level tank 1 (%)
-PROPERTY_SALT_TANK2: Final = "getCS2"  # Salt level tank 2 (%)
-PROPERTY_SALT_TANK3: Final = "getCS3"  # Salt level tank 3 (%)
+# NOTE: getCS1/2/3 are "Remaining capacity of the resin" in % - not actual salt level!
+PROPERTY_SALT_TANK1: Final = "getCS1"  # Resin capacity tank 1 (%)
+PROPERTY_SALT_TANK2: Final = "getCS2"  # Resin capacity tank 2 (%)
+PROPERTY_SALT_TANK3: Final = "getCS3"  # Resin capacity tank 3 (%)
 PROPERTY_SALT_RANGE1: Final = "getSS1"  # Salt range tank 1
 PROPERTY_SALT_RANGE2: Final = "getSS2"  # Salt range tank 2
 PROPERTY_SALT_RANGE3: Final = "getSS3"  # Salt range tank 3
-PROPERTY_SALT_VOLUME1: Final = "getSV1"  # Salt volume tank 1
-PROPERTY_SALT_VOLUME2: Final = "getSV2"  # Salt volume tank 2
-PROPERTY_SALT_VOLUME3: Final = "getSV3"  # Salt volume tank 3
+PROPERTY_SALT_VOLUME1: Final = "getSV1"  # Salt volume tank 1 (kg)
+PROPERTY_SALT_VOLUME2: Final = "getSV2"  # Salt volume tank 2 (kg)
+PROPERTY_SALT_VOLUME3: Final = "getSV3"  # Salt volume tank 3 (kg)
 PROPERTY_SALT_DAYS1: Final = "getSD1"  # Salt lasts for n days tank 1
 PROPERTY_SALT_DAYS2: Final = "getSD2"  # Salt lasts for n days tank 2
 PROPERTY_SALT_DAYS3: Final = "getSD3"  # Salt lasts for n days tank 3
