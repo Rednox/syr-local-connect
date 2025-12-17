@@ -98,62 +98,97 @@ class SyrProtocol:
         if not value:
             return None
             
-        # Handle special cases
-        if property_name in ["getFLO", "getPRS", "getRES", "getCS1", "getCS2", "getCS3"]:
-            # Numeric values
+        # Numeric values (flow, pressure, capacity, resin capacity, max flow, max/min pressure)
+        if property_name in ["getFLO", "getPRS", "getRES", "getCS1", "getCS2", "getCS3", 
+                            "getMXF", "getMXP", "getMNP", "getMPR"]:
             try:
                 return int(value)
             except (ValueError, TypeError):
                 return None
         
+        # Salt volume in kg
         if property_name in ["getSV1", "getSV2", "getSV3"]:
-            # Salt volume in kg
             try:
                 return int(value)
             except (ValueError, TypeError):
                 return None
         
+        # Salt duration in days/weeks
         if property_name in ["getSD1", "getSD2", "getSD3", "getSW1", "getSW2", "getSW3"]:
-            # Salt duration in days/weeks
             try:
                 return int(value)
             except (ValueError, TypeError):
                 return None
                 
+        # Water hardness
         if property_name in ["getIWH", "getOWH"]:
-            # Water hardness
             try:
                 return int(value)
             except (ValueError, TypeError):
                 return None
                 
+        # Temperature (1/10 °C)
         if property_name == "getCEL":
-            # Temperature (1/10 °C)
             try:
                 return float(value) / 10.0
             except (ValueError, TypeError):
                 return None
                 
+        # UNIX timestamp
         if property_name == "getLAR":
-            # UNIX timestamp
             try:
                 return int(value)
             except (ValueError, TypeError):
                 return None
                 
+        # Boolean values (0/1) - regeneration status, power state
         if property_name in ["getRG1", "getRG2", "getRG3", "getPST"]:
-            # Boolean values (0/1)
             return value == "1"
             
-        if property_name in ["getTOF", "getYEF", "getCWF", "getLWF", "getCMF", "getLMF", "getCOF"]:
-            # Consumption values
+        # Consumption values (all in liters)
+        if property_name in ["getTOF", "getYEF", "getCWF", "getLWF", "getCMF", "getLMF", "getCOF",
+                            "getTUF", "getWEF", "getTHF", "getFRF", "getSAF", "getSUF", 
+                            "getTFO", "getUWF", "getDWF", "getFCO"]:
             try:
                 return int(value)
             except (ValueError, TypeError):
                 return None
         
-        if property_name in ["getRPD", "getRPW"]:
-            # Regeneration period (days) and weekdays
+        # Regeneration settings (days, weekdays, hour, mode, type)
+        if property_name in ["getRPD", "getRPW", "getRTH", "getRTM", "getRTY"]:
+            try:
+                return int(value)
+            except (ValueError, TypeError):
+                return None
+        
+        # Regeneration counters
+        if property_name in ["getTOR", "getNOR", "getSCR", "getINR", "getCYN"]:
+            try:
+                return int(value)
+            except (ValueError, TypeError):
+                return None
+        
+        # Leakage detection numeric values
+        if property_name in ["getNPS", "getDBD", "getDBT", "getDST", "getDCM", "getDOM", 
+                            "getDPL", "getDTC", "getDRP", "getTN", "getLE", "getT2", "getTMP"]:
+            try:
+                return int(value)
+            except (ValueError, TypeError):
+                return None
+        
+        # Leakage detection boolean/enum values
+        if property_name in ["getAB", "getVLV", "getUL", "getDMA", "getALA", "getSMR", 
+                            "getSRE", "getVAC", "getVAT"]:
+            try:
+                return int(value)
+            except (ValueError, TypeError):
+                return None
+        
+        # Unknown numeric constants
+        if property_name in ["getPA1", "getPA2", "getPA3", "getVS1", "getVS2", "getVS3",
+                            "getBTM", "getBTS", "getCOR", "getDEN", "getDHC", "getFWM", 
+                            "getFWS", "getHOT", "getLGO", "getMOF", "getREV", "getRPE", 
+                            "getSDR", "getWHU", "getCHG", "getRDO"]:
             try:
                 return int(value)
             except (ValueError, TypeError):
