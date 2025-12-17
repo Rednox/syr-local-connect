@@ -257,3 +257,6 @@ SERVICE_UPDATE_PARAMETER: Final = "update_parameter"
 DATA_COORDINATOR: Final = "coordinator"
 DATA_SERVER: Final = "server"
 DATA_DEVICES: Final = "devices"
+
+# Dispatcher signals
+SIGNAL_NEW_DEVICE: Final = f"{DOMAIN}_new_device"
