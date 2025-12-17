@@ -24,6 +24,10 @@ homeassistant/config/*.db*
 homeassistant/config/tts/
 homeassistant/deps/
 homeassistant/**/__pycache__/
+homeassistant/config/syr_cert.pem
+homeassistant/config/syr_key.pem
+homeassistant/config/*.pem
+homeassistant/config/*.key
 
 # Secrets (do not commit)
 homeassistant/config/secrets.yaml
