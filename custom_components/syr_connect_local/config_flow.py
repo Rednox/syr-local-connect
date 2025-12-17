@@ -14,6 +14,7 @@ from .const import (
     CONF_HTTPS_PORT,
     CONF_HTTP_PORT,
     CONF_USE_HTTPS,
+    CONF_DEBUG_ENDPOINTS,
     DEFAULT_HTTPS_PORT,
     DEFAULT_HTTP_PORT,
     DOMAIN,
@@ -70,6 +71,7 @@ class SyrConnectLocalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_HTTPS_PORT, default=DEFAULT_HTTPS_PORT
                     ): vol.Coerce(int),
                     vol.Optional(CONF_USE_HTTPS, default=False): bool,
+                    vol.Optional(CONF_DEBUG_ENDPOINTS, default=False): bool,
                 }
             ),
             errors=errors,
@@ -88,8 +90,8 @@ class SyrConnectLocalOptionsFlow(config_entries.OptionsFlow):
     """Handle options flow for SYR Connect Local."""
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        """Initialize options flow."""
-        self.config_entry = config_entry
+        """Store config entry without touching read-only base property."""
+        self._config_entry = config_entry
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -115,9 +117,10 @@ class SyrConnectLocalOptionsFlow(config_entries.OptionsFlow):
                 errors["base"] = "unknown"
 
         # Get current values
-        current_http = self.config_entry.data.get(CONF_HTTP_PORT, DEFAULT_HTTP_PORT)
-        current_https = self.config_entry.data.get(CONF_HTTPS_PORT, DEFAULT_HTTPS_PORT)
-        current_use_https = self.config_entry.data.get(CONF_USE_HTTPS, False)
+        current_http = self._config_entry.data.get(CONF_HTTP_PORT, DEFAULT_HTTP_PORT)
+        current_https = self._config_entry.data.get(CONF_HTTPS_PORT, DEFAULT_HTTPS_PORT)
+        current_use_https = self._config_entry.data.get(CONF_USE_HTTPS, False)
+        current_debug = self._config_entry.data.get(CONF_DEBUG_ENDPOINTS, False)
 
         return self.async_show_form(
             step_id="init",
@@ -128,6 +131,7 @@ class SyrConnectLocalOptionsFlow(config_entries.OptionsFlow):
                         int
                     ),
                     vol.Optional(CONF_USE_HTTPS, default=current_use_https): bool,
+                    vol.Optional(CONF_DEBUG_ENDPOINTS, default=current_debug): bool,
                 }
             ),
             errors=errors,

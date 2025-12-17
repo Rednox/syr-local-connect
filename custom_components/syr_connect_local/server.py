@@ -1,4 +1,6 @@
 """SYR Connect Local HTTP/HTTPS server implementation."""
+from __future__ import annotations
+
 import asyncio
 import logging
 import ssl
@@ -61,6 +63,7 @@ class SyrConnectServer:
         use_https: bool = False,
         cert_file: str | None = None,
         key_file: str | None = None,
+        enable_debug_endpoints: bool = False,
     ):
         """Initialize the server."""
         self.http_port = http_port
@@ -74,6 +77,7 @@ class SyrConnectServer:
         self.app = web.Application()
         self.runner: web.AppRunner | None = None
         self.sites: list[web.TCPSite] = []
+        self.enable_debug_endpoints = enable_debug_endpoints
 
         # Callbacks for device events
         self.on_device_discovered: Callable[[str, dict[str, str]], None] | None = None
@@ -92,31 +96,56 @@ class SyrConnectServer:
         self.app.router.add_post(ENDPOINT_BASIC_ALT, self.handle_basic_commands)
         self.app.router.add_post(ENDPOINT_ALL_ALT, self.handle_all_commands)
 
+        # Debug-only endpoints
+        if self.enable_debug_endpoints:
+            self.app.router.add_get("/status", self.handle_status)
+            self.app.router.add_get("/echo", self.handle_echo)
+            self.app.router.add_post("/echo", self.handle_echo)
+
     async def handle_basic_commands(self, request: web.Request) -> web.Response:
         """Handle GetBasicCommands endpoint."""
         try:
-            # For basic commands, we just request device identification
-            _LOGGER.debug("Received GetBasicCommands request")
+            # Log detailed request information
+            client_ip = request.remote
+            scheme = request.scheme  # 'http' or 'https'
+            host = request.host
+            _LOGGER.debug(
+                "GetBasicCommands request: scheme=%s, client=%s, host=%s, url=%s",
+                scheme, client_ip, host, request.url
+            )
+            _LOGGER.debug("Request headers: %s", dict(request.headers))
 
             # Generate response requesting basic device info
             response_data = self.protocol.create_command_request(BASIC_COMMANDS)
             response_xml = self.protocol.generate_xml(response_data)
 
             return web.Response(
-                text=response_xml,
-                content_type="text/xml; charset=utf-8",
+                body=response_xml.encode("utf-8"),
+                content_type="text/xml",
+                charset="utf-8",
             )
 
         except Exception as err:
             _LOGGER.error("Error handling basic commands: %s", err)
             return web.Response(
-                text='<?xml version="1.0" encoding="utf-8"?><sc version="1.0"><d></d></sc>',
-                content_type="text/xml; charset=utf-8",
+                body='<?xml version="1.0" encoding="utf-8"?><sc version="1.0"><d></d></sc>'.encode("utf-8"),
+                content_type="text/xml",
+                charset="utf-8",
             )
 
     async def handle_all_commands(self, request: web.Request) -> web.Response:
         """Handle GetAllCommands endpoint."""
         try:
+            # Log detailed request information
+            client_ip = request.remote
+            scheme = request.scheme  # 'http' or 'https'
+            host = request.host
+            _LOGGER.debug(
+                "GetAllCommands request: scheme=%s, client=%s, host=%s, url=%s",
+                scheme, client_ip, host, request.url
+            )
+            _LOGGER.debug("Request headers: %s", dict(request.headers))
+            
             # Parse the POST data
             post_data = await request.post()
             xml_data = post_data.get("xml", "")
@@ -124,8 +153,9 @@ class SyrConnectServer:
             if not xml_data:
                 _LOGGER.warning("Received GetAllCommands without xml parameter")
                 return web.Response(
-                    text='<?xml version="1.0" encoding="utf-8"?><sc version="1.0"><d></d></sc>',
-                    content_type="text/xml; charset=utf-8",
+                    body='<?xml version="1.0" encoding="utf-8"?><sc version="1.0"><d></d></sc>'.encode("utf-8"),
+                    content_type="text/xml",
+                    charset="utf-8",
                 )
 
             # Parse device properties from XML
@@ -134,8 +164,9 @@ class SyrConnectServer:
             if not properties:
                 _LOGGER.warning("Failed to parse device properties")
                 return web.Response(
-                    text='<?xml version="1.0" encoding="utf-8"?><sc version="1.0"><d></d></sc>',
-                    content_type="text/xml; charset=utf-8",
+                    body='<?xml version="1.0" encoding="utf-8"?><sc version="1.0"><d></d></sc>'.encode("utf-8"),
+                    content_type="text/xml",
+                    charset="utf-8",
                 )
 
             # Get serial number to identify device
@@ -146,8 +177,9 @@ class SyrConnectServer:
                 response_data = self.protocol.create_command_request(ALL_COMMANDS)
                 response_xml = self.protocol.generate_xml(response_data)
                 return web.Response(
-                    text=response_xml,
-                    content_type="text/xml; charset=utf-8",
+                    body=response_xml.encode("utf-8"),
+                    content_type="text/xml",
+                    charset="utf-8",
                 )
 
             # Get or create device state
@@ -200,16 +232,91 @@ class SyrConnectServer:
             response_xml = self.protocol.generate_xml(response_data)
 
             return web.Response(
-                text=response_xml,
-                content_type="text/xml; charset=utf-8",
+                body=response_xml.encode("utf-8"),
+                content_type="text/xml",
+                charset="utf-8",
             )
 
         except Exception as err:
             _LOGGER.error("Error handling all commands: %s", err, exc_info=True)
             return web.Response(
-                text='<?xml version="1.0" encoding="utf-8"?><sc version="1.0"><d></d></sc>',
-                content_type="text/xml; charset=utf-8",
+                body='<?xml version="1.0" encoding="utf-8"?><sc version="1.0"><d></d></sc>'.encode("utf-8"),
+                content_type="text/xml",
+                charset="utf-8",
             )
+
+    async def handle_status(self, request: web.Request) -> web.Response:
+        """Return a JSON with integration/server status and known devices."""
+        try:
+            now = asyncio.get_event_loop().time()
+            devices_info: list[dict[str, Any]] = []
+            for serial, dev in self.devices.items():
+                last_seen_ago = None
+                if dev.last_seen:
+                    last_seen_ago = round(max(0.0, now - dev.last_seen), 3)
+                devices_info.append(
+                    {
+                        "serial": serial,
+                        "identified": dev.is_identified,
+                        "last_seen_seconds_ago": last_seen_ago,
+                        "properties_count": len(dev.properties),
+                        "pending_commands_count": len(dev.pending_commands),
+                    }
+                )
+
+            payload = {
+                "http_port": self.http_port,
+                "https_port": self.https_port if self.use_https else None,
+                "use_https": self.use_https,
+                "devices_count": len(self.devices),
+                "devices": devices_info,
+            }
+            return web.json_response(payload)
+        except Exception as err:
+            _LOGGER.error("Error building status: %s", err, exc_info=True)
+            return web.json_response({"error": "internal_error"}, status=500)
+
+    async def handle_echo(self, request: web.Request) -> web.Response:
+        """Echo back request details to help diagnose connectivity."""
+        try:
+            info: dict[str, Any] = {
+                "method": request.method,
+                "scheme": request.scheme,
+                "host": request.host,
+                "path": request.path,
+                "url": str(request.url),
+                "remote": request.remote,
+                "headers": dict(request.headers),
+                "content_type": request.content_type,
+            }
+
+            # Try to read form fields (non-blocking if none)
+            try:
+                form = await request.post()
+                if form:
+                    # Convert MultiDict to plain dict of strings
+                    info["form"] = {k: str(v) for k, v in form.items()}
+            except Exception:  # best-effort
+                pass
+
+            # Safely read a small portion of raw body for reference
+            try:
+                body = await request.read()
+                # Limit size to avoid huge payloads
+                preview = body[:512]
+                info["body_len"] = len(body)
+                # Show a utf-8 safe preview if possible
+                try:
+                    info["body_preview"] = preview.decode("utf-8", errors="replace")
+                except Exception:
+                    info["body_preview_base64"] = preview.hex()
+            except Exception:  # best-effort
+                pass
+
+            return web.json_response(info)
+        except Exception as err:
+            _LOGGER.error("Error handling echo: %s", err, exc_info=True)
+            return web.json_response({"error": "internal_error"}, status=500)
 
     def get_device(self, serial: str) -> DeviceState | None:
         """Get device state by serial number."""
@@ -234,21 +341,35 @@ class SyrConnectServer:
             self.runner = web.AppRunner(self.app)
             await self.runner.setup()
 
-            # Start HTTP server
-            http_site = web.TCPSite(
-                self.runner,
-                None,  # Listen on all interfaces
-                self.http_port,
-            )
-            await http_site.start()
-            self.sites.append(http_site)
-            _LOGGER.info("SYR Connect Local HTTP server started on port %d", self.http_port)
+            # Start HTTP server (gracefully handle port already in use)
+            try:
+                http_site = web.TCPSite(
+                    self.runner,
+                    None,  # Listen on all interfaces
+                    self.http_port,
+                )
+                await http_site.start()
+                self.sites.append(http_site)
+                _LOGGER.info("SYR Connect Local HTTP server started on port %d", self.http_port)
+            except OSError as err:
+                # If port is in use, continue with HTTPS only
+                _LOGGER.warning(
+                    "HTTP port %d unavailable (%s); continuing without HTTP server",
+                    self.http_port,
+                    err,
+                )
 
             # Start HTTPS server if configured
             if self.use_https and self.cert_file and self.key_file:
+                _LOGGER.info(
+                    "Starting HTTPS server on port %d with cert=%s, key=%s",
+                    self.https_port, self.cert_file, self.key_file
+                )
                 try:
-                    ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-                    ssl_context.load_cert_chain(self.cert_file, self.key_file)
+                    loop = asyncio.get_event_loop()
+                    ssl_context = await loop.run_in_executor(
+                        None, self._create_ssl_context
+                    )
 
                     https_site = web.TCPSite(
                         self.runner,
@@ -264,10 +385,28 @@ class SyrConnectServer:
                     )
                 except Exception as err:
                     _LOGGER.error("Failed to start HTTPS server: %s", err)
+            else:
+                _LOGGER.debug(
+                    "HTTPS not started: use_https=%s, cert_file=%s, key_file=%s",
+                    self.use_https, self.cert_file, self.key_file
+                )
 
         except Exception as err:
             _LOGGER.error("Failed to start server: %s", err)
             raise
+
+    def _create_ssl_context(self) -> ssl.SSLContext:
+        """Create SSL context (runs in thread pool executor)."""
+        ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        ssl_context.load_cert_chain(self.cert_file, self.key_file)
+        
+        # Allow older TLS versions and weaker ciphers for compatibility with legacy SYR devices
+        # SYR devices may use TLS 1.0/1.1 with older cipher suites
+        ssl_context.minimum_version = ssl.TLSVersion.TLSv1
+        ssl_context.set_ciphers("DEFAULT:@SECLEVEL=0")
+        
+        _LOGGER.debug("SSL context created with TLS 1.0+ support and relaxed cipher policy")
+        return ssl_context
 
     async def stop(self) -> None:
         """Stop the server."""

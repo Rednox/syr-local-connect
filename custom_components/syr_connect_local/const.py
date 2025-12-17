@@ -9,6 +9,7 @@ CONF_HTTPS_PORT: Final = "https_port"
 CONF_CERT_FILE: Final = "cert_file"
 CONF_KEY_FILE: Final = "key_file"
 CONF_USE_HTTPS: Final = "use_https"
+CONF_DEBUG_ENDPOINTS: Final = "debug_endpoints"
 
 # Default values
 DEFAULT_HTTP_PORT: Final = 80

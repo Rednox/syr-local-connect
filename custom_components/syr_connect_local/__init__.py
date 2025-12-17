@@ -3,15 +3,20 @@ from __future__ import annotations
 
 import logging
 
+from pathlib import Path
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
 from .const import (
+    CONF_CERT_FILE,
     CONF_HTTPS_PORT,
     CONF_HTTP_PORT,
+    CONF_KEY_FILE,
     CONF_USE_HTTPS,
+    CONF_DEBUG_ENDPOINTS,
     DATA_COORDINATOR,
     DATA_SERVER,
     DEFAULT_HTTPS_PORT,
@@ -38,12 +43,34 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     http_port = entry.data.get(CONF_HTTP_PORT, DEFAULT_HTTP_PORT)
     https_port = entry.data.get(CONF_HTTPS_PORT, DEFAULT_HTTPS_PORT)
     use_https = entry.data.get(CONF_USE_HTTPS, False)
+    cert_file = entry.data.get(CONF_CERT_FILE)
+    key_file = entry.data.get(CONF_KEY_FILE)
+    debug_endpoints = entry.options.get(
+        CONF_DEBUG_ENDPOINTS, entry.data.get(CONF_DEBUG_ENDPOINTS, False)
+    )
+
+    # Provide sensible defaults for HTTPS cert/key if enabled but not set
+    if use_https:
+        if not cert_file:
+            cert_file = "/config/syr_cert.pem"
+        if not key_file:
+            key_file = "/config/syr_key.pem"
+        if not Path(cert_file).exists() or not Path(key_file).exists():
+            _LOGGER.warning(
+                "HTTPS disabled: cert/key not found (cert=%s, key=%s)",
+                cert_file,
+                key_file,
+            )
+            use_https = False
 
     # Create the server
     server = SyrConnectServer(
         http_port=http_port,
         https_port=https_port,
         use_https=use_https,
+        cert_file=cert_file,
+        key_file=key_file,
+        enable_debug_endpoints=debug_endpoints,
     )
 
     # Set up device discovery callback
@@ -111,7 +138,7 @@ async def _async_setup_services(
     hass: HomeAssistant, coordinator: SyrConnectLocalCoordinator
 ) -> None:
     """Set up services for the integration."""
-    from homeassistant import config_validation as cv
+    from homeassistant.helpers import config_validation as cv
     import voluptuous as vol
 
     from .const import SERVICE_START_REGENERATION, SERVICE_UPDATE_PARAMETER, SETTER_START_REGEN

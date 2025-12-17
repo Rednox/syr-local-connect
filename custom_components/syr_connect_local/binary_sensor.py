@@ -9,6 +9,7 @@ from homeassistant.components.binary_sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -25,10 +26,64 @@ from .const import (
     PROPERTY_SERIAL,
     PROPERTY_TYPE,
     PROPERTY_VERSION,
+    SIGNAL_NEW_DEVICE,
 )
 from .coordinator import SyrConnectLocalCoordinator
 
 _LOGGER = logging.getLogger(__name__)
+
+
+
+def _create_binary_entities_for_serial(coordinator: SyrConnectLocalCoordinator, serial: str) -> list[BinarySensorEntity]:
+    """Create all binary sensor entities for a given device serial."""
+    entities: list[BinarySensorEntity] = []
+    device_data = coordinator.get_device_data(serial)
+
+    # Regeneration active sensors (one per tank)
+    entities.append(
+        SyrBinarySensor(
+            coordinator,
+            serial,
+            PROPERTY_REGEN_TANK1,
+            "Regeneration Active Tank 1",
+            BinarySensorDeviceClass.RUNNING,
+        )
+    )
+
+    # Add tank 2 and 3 if they exist or data not yet available
+    if device_data is None or device_data.get(PROPERTY_REGEN_TANK2) is not None:
+        entities.append(
+            SyrBinarySensor(
+                coordinator,
+                serial,
+                PROPERTY_REGEN_TANK2,
+                "Regeneration Active Tank 2",
+                BinarySensorDeviceClass.RUNNING,
+            )
+        )
+
+    if device_data is None or device_data.get(PROPERTY_REGEN_TANK3) is not None:
+        entities.append(
+            SyrBinarySensor(
+                coordinator,
+                serial,
+                PROPERTY_REGEN_TANK3,
+                "Regeneration Active Tank 3",
+                BinarySensorDeviceClass.RUNNING,
+            )
+        )
+
+    # Flow active sensor
+    entities.append(
+        SyrFlowBinarySensor(coordinator, serial)
+    )
+
+    # Alarm sensor
+    entities.append(
+        SyrAlarmBinarySensor(coordinator, serial)
+    )
+
+    return entities
 
 
 async def async_setup_entry(
@@ -45,55 +100,19 @@ async def async_setup_entry(
 
     # Create binary sensors for each device
     for serial in coordinator.devices:
-        device_data = coordinator.get_device_data(serial)
-        if not device_data:
-            continue
-
-        # Regeneration active sensors (one per tank)
-        entities.append(
-            SyrBinarySensor(
-                coordinator,
-                serial,
-                PROPERTY_REGEN_TANK1,
-                "Regeneration Active Tank 1",
-                BinarySensorDeviceClass.RUNNING,
-            )
-        )
-
-        # Add tank 2 and 3 if they exist
-        if device_data.get(PROPERTY_REGEN_TANK2) is not None:
-            entities.append(
-                SyrBinarySensor(
-                    coordinator,
-                    serial,
-                    PROPERTY_REGEN_TANK2,
-                    "Regeneration Active Tank 2",
-                    BinarySensorDeviceClass.RUNNING,
-                )
-            )
-
-        if device_data.get(PROPERTY_REGEN_TANK3) is not None:
-            entities.append(
-                SyrBinarySensor(
-                    coordinator,
-                    serial,
-                    PROPERTY_REGEN_TANK3,
-                    "Regeneration Active Tank 3",
-                    BinarySensorDeviceClass.RUNNING,
-                )
-            )
-
-        # Flow active sensor
-        entities.append(
-            SyrFlowBinarySensor(coordinator, serial)
-        )
-
-        # Alarm sensor
-        entities.append(
-            SyrAlarmBinarySensor(coordinator, serial)
-        )
+        entities.extend(_create_binary_entities_for_serial(coordinator, serial))
 
     async_add_entities(entities)
+
+    # Listen for newly discovered devices and add entities dynamically
+    async def _handle_new_device(serial: str) -> None:
+        _LOGGER.info("Binary sensor platform: new device signal for %s", serial)
+        new_entities = _create_binary_entities_for_serial(coordinator, serial)
+        if new_entities:
+            _LOGGER.info("Binary sensor platform: adding %d entities for %s", len(new_entities), serial)
+            async_add_entities(new_entities)
+
+    async_dispatcher_connect(hass, SIGNAL_NEW_DEVICE, _handle_new_device)
 
 
 class SyrBinarySensor(CoordinatorEntity, BinarySensorEntity):
@@ -138,6 +157,9 @@ class SyrBinarySensor(CoordinatorEntity, BinarySensorEntity):
             value = device_data.get(self._property_key)
             if isinstance(value, bool):
                 return value
+            # Handle empty strings as None
+            if value == "":
+                return None
             # Handle string values
             if value == "1":
                 return True
@@ -169,7 +191,7 @@ class SyrFlowBinarySensor(SyrBinarySensor):
         device_data = self.coordinator.get_device_data(self._serial)
         if device_data:
             flow = device_data.get(self._property_key)
-            if flow is not None:
+            if flow is not None and flow != "":
                 try:
                     return int(flow) > 0
                 except (ValueError, TypeError):

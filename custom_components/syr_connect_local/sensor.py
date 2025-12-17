@@ -19,6 +19,7 @@ from homeassistant.const import (
     UnitOfVolumeFlowRate,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -46,10 +47,211 @@ from .const import (
     PROPERTY_TOTAL_REGEN,
     PROPERTY_TYPE,
     PROPERTY_VERSION,
+    SIGNAL_NEW_DEVICE,
 )
 from .coordinator import SyrConnectLocalCoordinator
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _create_entities_for_serial(coordinator: SyrConnectLocalCoordinator, serial: str) -> list[SensorEntity]:
+    """Create all sensor entities for a given device serial."""
+    entities: list[SensorEntity] = []
+    device_data = coordinator.get_device_data(serial)
+
+    # Water hardness sensors
+    entities.append(
+        SyrSensor(
+            coordinator,
+            serial,
+            PROPERTY_INLET_HARDNESS,
+            "Inlet Water Hardness",
+            "°dH",
+            None,
+            SensorStateClass.MEASUREMENT,
+        )
+    )
+    entities.append(
+        SyrSensor(
+            coordinator,
+            serial,
+            PROPERTY_OUTLET_HARDNESS,
+            "Outlet Water Hardness",
+            "°dH",
+            None,
+            SensorStateClass.MEASUREMENT,
+        )
+    )
+
+    # Salt level sensors (only if present or data not yet available)
+    if device_data is None or device_data.get(PROPERTY_SALT_TANK1) is not None:
+        entities.append(
+            SyrSensor(
+                coordinator,
+                serial,
+                PROPERTY_SALT_TANK1,
+                "Salt Level Tank 1",
+                PERCENTAGE,
+                None,
+                SensorStateClass.MEASUREMENT,
+            )
+        )
+
+    if device_data is None or (device_data.get(PROPERTY_SALT_TANK2) is not None and device_data.get(PROPERTY_SALT_TANK2) != 0):
+        entities.append(
+            SyrSensor(
+                coordinator,
+                serial,
+                PROPERTY_SALT_TANK2,
+                "Salt Level Tank 2",
+                PERCENTAGE,
+                None,
+                SensorStateClass.MEASUREMENT,
+            )
+        )
+
+    if device_data is None or (device_data.get(PROPERTY_SALT_TANK3) is not None and device_data.get(PROPERTY_SALT_TANK3) != 0):
+        entities.append(
+            SyrSensor(
+                coordinator,
+                serial,
+                PROPERTY_SALT_TANK3,
+                "Salt Level Tank 3",
+                PERCENTAGE,
+                None,
+                SensorStateClass.MEASUREMENT,
+            )
+        )
+
+    # Capacity
+    entities.append(
+        SyrSensor(
+            coordinator,
+            serial,
+            PROPERTY_CAPACITY,
+            "Capacity Remaining",
+            UnitOfVolume.LITERS,
+            None,
+            SensorStateClass.MEASUREMENT,
+        )
+    )
+
+    # Flow
+    entities.append(
+        SyrSensor(
+            coordinator,
+            serial,
+            PROPERTY_FLOW,
+            "Water Flow",
+            UnitOfVolumeFlowRate.LITERS_PER_MINUTE,
+            None,
+            SensorStateClass.MEASUREMENT,
+        )
+    )
+
+    # Pressure
+    entities.append(
+        SyrPressureSensor(coordinator, serial)
+    )
+
+    # Consumption sensors
+    entities.append(
+        SyrSensor(
+            coordinator,
+            serial,
+            PROPERTY_CONSUMPTION_TODAY,
+            "Water Consumption Today",
+            UnitOfVolume.LITERS,
+            None,
+            SensorStateClass.TOTAL_INCREASING,
+        )
+    )
+    entities.append(
+        SyrSensor(
+            coordinator,
+            serial,
+            PROPERTY_CONSUMPTION_YESTERDAY,
+            "Water Consumption Yesterday",
+            UnitOfVolume.LITERS,
+            None,
+            SensorStateClass.TOTAL,
+        )
+    )
+    entities.append(
+        SyrSensor(
+            coordinator,
+            serial,
+            PROPERTY_CONSUMPTION_MONTH,
+            "Water Consumption This Month",
+            UnitOfVolume.LITERS,
+            None,
+            SensorStateClass.TOTAL_INCREASING,
+        )
+    )
+    entities.append(
+        SyrSensor(
+            coordinator,
+            serial,
+            PROPERTY_CONSUMPTION_LAST_MONTH,
+            "Water Consumption Last Month",
+            UnitOfVolume.LITERS,
+            None,
+            SensorStateClass.TOTAL,
+        )
+    )
+    entities.append(
+        SyrSensor(
+            coordinator,
+            serial,
+            PROPERTY_CONSUMPTION_TOTAL,
+            "Total Water Consumption",
+            UnitOfVolume.LITERS,
+            None,
+            SensorStateClass.TOTAL_INCREASING,
+        )
+    )
+
+    # Regeneration info
+    entities.append(SyrLastRegenerationSensor(coordinator, serial))
+    entities.append(
+        SyrSensor(
+            coordinator,
+            serial,
+            PROPERTY_TOTAL_REGEN,
+            "Total Regenerations",
+            None,
+            None,
+            SensorStateClass.TOTAL_INCREASING,
+        )
+    )
+
+    # Device info sensors
+    entities.append(
+        SyrSensor(
+            coordinator,
+            serial,
+            PROPERTY_VERSION,
+            "Firmware Version",
+            None,
+            None,
+        )
+    )
+
+    # Temperature (if available - LEX Plus SL)
+    if device_data is None or device_data.get(PROPERTY_TEMPERATURE) is not None:
+        entities.append(
+            SyrSensor(
+                coordinator,
+                serial,
+                PROPERTY_TEMPERATURE,
+                "Water Temperature",
+                UnitOfTemperature.CELSIUS,
+                SensorDeviceClass.TEMPERATURE,
+                SensorStateClass.MEASUREMENT,
+            )
+        )
+
+    return entities
 
 
 async def async_setup_entry(
@@ -66,203 +268,19 @@ async def async_setup_entry(
 
     # Create sensors for each device
     for serial in coordinator.devices:
-        device_data = coordinator.get_device_data(serial)
-        if not device_data:
-            continue
-
-        # Water hardness sensors
-        entities.append(
-            SyrSensor(
-                coordinator,
-                serial,
-                PROPERTY_INLET_HARDNESS,
-                "Inlet Water Hardness",
-                "°dH",
-                None,
-                SensorStateClass.MEASUREMENT,
-            )
-        )
-        entities.append(
-            SyrSensor(
-                coordinator,
-                serial,
-                PROPERTY_OUTLET_HARDNESS,
-                "Outlet Water Hardness",
-                "°dH",
-                None,
-                SensorStateClass.MEASUREMENT,
-            )
-        )
-
-        # Salt level sensors (only if present)
-        if device_data.get(PROPERTY_SALT_TANK1) is not None:
-            entities.append(
-                SyrSensor(
-                    coordinator,
-                    serial,
-                    PROPERTY_SALT_TANK1,
-                    "Salt Level Tank 1",
-                    PERCENTAGE,
-                    None,
-                    SensorStateClass.MEASUREMENT,
-                )
-            )
-
-        if device_data.get(PROPERTY_SALT_TANK2) is not None and device_data.get(PROPERTY_SALT_TANK2) != 0:
-            entities.append(
-                SyrSensor(
-                    coordinator,
-                    serial,
-                    PROPERTY_SALT_TANK2,
-                    "Salt Level Tank 2",
-                    PERCENTAGE,
-                    None,
-                    SensorStateClass.MEASUREMENT,
-                )
-            )
-
-        if device_data.get(PROPERTY_SALT_TANK3) is not None and device_data.get(PROPERTY_SALT_TANK3) != 0:
-            entities.append(
-                SyrSensor(
-                    coordinator,
-                    serial,
-                    PROPERTY_SALT_TANK3,
-                    "Salt Level Tank 3",
-                    PERCENTAGE,
-                    None,
-                    SensorStateClass.MEASUREMENT,
-                )
-            )
-
-        # Capacity
-        entities.append(
-            SyrSensor(
-                coordinator,
-                serial,
-                PROPERTY_CAPACITY,
-                "Capacity Remaining",
-                UnitOfVolume.LITERS,
-                None,
-                SensorStateClass.MEASUREMENT,
-            )
-        )
-
-        # Flow
-        entities.append(
-            SyrSensor(
-                coordinator,
-                serial,
-                PROPERTY_FLOW,
-                "Water Flow",
-                UnitOfVolumeFlowRate.LITERS_PER_MINUTE,
-                None,
-                SensorStateClass.MEASUREMENT,
-            )
-        )
-
-        # Pressure
-        entities.append(
-            SyrPressureSensor(coordinator, serial)
-        )
-
-        # Consumption sensors
-        entities.append(
-            SyrSensor(
-                coordinator,
-                serial,
-                PROPERTY_CONSUMPTION_TODAY,
-                "Water Consumption Today",
-                UnitOfVolume.LITERS,
-                None,
-                SensorStateClass.TOTAL_INCREASING,
-            )
-        )
-        entities.append(
-            SyrSensor(
-                coordinator,
-                serial,
-                PROPERTY_CONSUMPTION_YESTERDAY,
-                "Water Consumption Yesterday",
-                UnitOfVolume.LITERS,
-                None,
-                SensorStateClass.TOTAL,
-            )
-        )
-        entities.append(
-            SyrSensor(
-                coordinator,
-                serial,
-                PROPERTY_CONSUMPTION_MONTH,
-                "Water Consumption This Month",
-                UnitOfVolume.LITERS,
-                None,
-                SensorStateClass.TOTAL_INCREASING,
-            )
-        )
-        entities.append(
-            SyrSensor(
-                coordinator,
-                serial,
-                PROPERTY_CONSUMPTION_LAST_MONTH,
-                "Water Consumption Last Month",
-                UnitOfVolume.LITERS,
-                None,
-                SensorStateClass.TOTAL,
-            )
-        )
-        entities.append(
-            SyrSensor(
-                coordinator,
-                serial,
-                PROPERTY_CONSUMPTION_TOTAL,
-                "Total Water Consumption",
-                UnitOfVolume.LITERS,
-                None,
-                SensorStateClass.TOTAL_INCREASING,
-            )
-        )
-
-        # Regeneration info
-        entities.append(SyrLastRegenerationSensor(coordinator, serial))
-        entities.append(
-            SyrSensor(
-                coordinator,
-                serial,
-                PROPERTY_TOTAL_REGEN,
-                "Total Regenerations",
-                None,
-                None,
-                SensorStateClass.TOTAL_INCREASING,
-            )
-        )
-
-        # Device info sensors
-        entities.append(
-            SyrSensor(
-                coordinator,
-                serial,
-                PROPERTY_VERSION,
-                "Firmware Version",
-                None,
-                None,
-            )
-        )
-
-        # Temperature (if available - LEX Plus SL)
-        if device_data.get(PROPERTY_TEMPERATURE) is not None:
-            entities.append(
-                SyrSensor(
-                    coordinator,
-                    serial,
-                    PROPERTY_TEMPERATURE,
-                    "Water Temperature",
-                    UnitOfTemperature.CELSIUS,
-                    SensorDeviceClass.TEMPERATURE,
-                    SensorStateClass.MEASUREMENT,
-                )
-            )
+        entities.extend(_create_entities_for_serial(coordinator, serial))
 
     async_add_entities(entities)
+
+    # Listen for newly discovered devices and add entities dynamically
+    async def _handle_new_device(serial: str) -> None:
+        _LOGGER.info("Sensor platform: new device signal for %s", serial)
+        new_entities = _create_entities_for_serial(coordinator, serial)
+        if new_entities:
+            _LOGGER.info("Sensor platform: adding %d entities for %s", len(new_entities), serial)
+            async_add_entities(new_entities)
+
+    async_dispatcher_connect(hass, SIGNAL_NEW_DEVICE, _handle_new_device)
 
 
 class SyrSensor(CoordinatorEntity, SensorEntity):
@@ -308,7 +326,11 @@ class SyrSensor(CoordinatorEntity, SensorEntity):
         """Return the state of the sensor."""
         device_data = self.coordinator.get_device_data(self._serial)
         if device_data:
-            return device_data.get(self._property_key)
+            value = device_data.get(self._property_key)
+            # Handle empty strings as None
+            if value == "":
+                return None
+            return value
         return None
 
 
@@ -337,7 +359,7 @@ class SyrPressureSensor(SyrSensor):
         device_data = self.coordinator.get_device_data(self._serial)
         if device_data:
             pressure_raw = device_data.get(self._property_key)
-            if pressure_raw is not None:
+            if pressure_raw is not None and pressure_raw != "":
                 try:
                     return float(pressure_raw) / 10.0
                 except (ValueError, TypeError):
@@ -366,12 +388,14 @@ class SyrLastRegenerationSensor(SyrSensor):
     @property
     def native_value(self) -> datetime | None:
         """Return the last regeneration as datetime."""
+        from datetime import timezone
         device_data = self.coordinator.get_device_data(self._serial)
         if device_data:
             timestamp = device_data.get(self._property_key)
-            if timestamp is not None:
+            if timestamp is not None and timestamp != "":
                 try:
-                    return datetime.fromtimestamp(int(timestamp))
+                    # Create timezone-aware datetime (UTC)
+                    return datetime.fromtimestamp(int(timestamp), tz=timezone.utc)
                 except (ValueError, TypeError, OSError):
                     return None
         return None
