@@ -5,6 +5,50 @@ from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
 
+# Property groups for type conversion
+# Numeric integer properties
+NUMERIC_INT_PROPERTIES = [
+    "getFLO", "getPRS", "getRES", "getCS1", "getCS2", "getCS3",
+    "getMXF", "getMXP", "getMNP", "getMPR",
+    "getSV1", "getSV2", "getSV3",
+    "getSD1", "getSD2", "getSD3", "getSW1", "getSW2", "getSW3",
+    "getIWH", "getOWH",
+    "getTOR", "getNOR", "getSCR", "getINR", "getCYN",
+    "getRPD", "getRPW", "getRTH", "getRTM", "getRTY",
+    "getFCO", "getDWF",
+]
+
+# Consumption values in liters
+CONSUMPTION_PROPERTIES = [
+    "getTOF", "getYEF", "getCWF", "getLWF", "getCMF", "getLMF", "getCOF",
+    "getTUF", "getWEF", "getTHF", "getFRF", "getSAF", "getSUF",
+    "getTFO", "getUWF",
+]
+
+# Leakage detection numeric properties
+LEAKAGE_NUMERIC_PROPERTIES = [
+    "getNPS", "getDBD", "getDBT", "getDST", "getDCM", "getDOM",
+    "getDPL", "getDTC", "getDRP", "getTN", "getLE", "getT2", "getTMP",
+    "getAB", "getVLV", "getUL", "getDMA", "getALA", "getSMR",
+    "getSRE", "getVAC", "getVAT",
+]
+
+# Documented numeric properties (settings and constants)
+DOCUMENTED_NUMERIC_PROPERTIES = [
+    "getWHU", "getCHG", "getRDO",
+]
+
+# Unknown/undocumented numeric properties
+UNKNOWN_NUMERIC_PROPERTIES = [
+    "getPA1", "getPA2", "getPA3", "getVS1", "getVS2", "getVS3",
+    "getBTM", "getBTS", "getCOR", "getDEN", "getDHC", "getFWM",
+    "getFWS", "getHOT", "getLGO", "getMOF", "getREV", "getRPE", "getSDR",
+]
+
+# Boolean properties (0/1 values)
+BOOLEAN_PROPERTIES = ["getRG1", "getRG2", "getRG3", "getPST"]
+
+
 class SyrProtocol:
     """Handle SYR Connect XML protocol parsing and generation."""
 
@@ -98,36 +142,7 @@ class SyrProtocol:
         if not value:
             return None
             
-        # Numeric values (flow, pressure, capacity, resin capacity, max flow, max/min pressure)
-        if property_name in ["getFLO", "getPRS", "getRES", "getCS1", "getCS2", "getCS3", 
-                            "getMXF", "getMXP", "getMNP", "getMPR"]:
-            try:
-                return int(value)
-            except (ValueError, TypeError):
-                return None
-        
-        # Salt volume in kg
-        if property_name in ["getSV1", "getSV2", "getSV3"]:
-            try:
-                return int(value)
-            except (ValueError, TypeError):
-                return None
-        
-        # Salt duration in days/weeks
-        if property_name in ["getSD1", "getSD2", "getSD3", "getSW1", "getSW2", "getSW3"]:
-            try:
-                return int(value)
-            except (ValueError, TypeError):
-                return None
-                
-        # Water hardness
-        if property_name in ["getIWH", "getOWH"]:
-            try:
-                return int(value)
-            except (ValueError, TypeError):
-                return None
-                
-        # Temperature (1/10 °C)
+        # Temperature (1/10 °C) - special float conversion
         if property_name == "getCEL":
             try:
                 return float(value) / 10.0
@@ -142,53 +157,39 @@ class SyrProtocol:
                 return None
                 
         # Boolean values (0/1) - regeneration status, power state
-        if property_name in ["getRG1", "getRG2", "getRG3", "getPST"]:
+        if property_name in BOOLEAN_PROPERTIES:
             return value == "1"
             
+        # Numeric integer properties (flow, pressure, capacity, etc.)
+        if property_name in NUMERIC_INT_PROPERTIES:
+            try:
+                return int(value)
+            except (ValueError, TypeError):
+                return None
+        
         # Consumption values (all in liters)
-        if property_name in ["getTOF", "getYEF", "getCWF", "getLWF", "getCMF", "getLMF", "getCOF",
-                            "getTUF", "getWEF", "getTHF", "getFRF", "getSAF", "getSUF", 
-                            "getTFO", "getUWF", "getDWF", "getFCO"]:
-            try:
-                return int(value)
-            except (ValueError, TypeError):
-                return None
-        
-        # Regeneration settings (days, weekdays, hour, mode, type)
-        if property_name in ["getRPD", "getRPW", "getRTH", "getRTM", "getRTY"]:
-            try:
-                return int(value)
-            except (ValueError, TypeError):
-                return None
-        
-        # Regeneration counters
-        if property_name in ["getTOR", "getNOR", "getSCR", "getINR", "getCYN"]:
+        if property_name in CONSUMPTION_PROPERTIES:
             try:
                 return int(value)
             except (ValueError, TypeError):
                 return None
         
         # Leakage detection numeric values
-        if property_name in ["getNPS", "getDBD", "getDBT", "getDST", "getDCM", "getDOM", 
-                            "getDPL", "getDTC", "getDRP", "getTN", "getLE", "getT2", "getTMP"]:
+        if property_name in LEAKAGE_NUMERIC_PROPERTIES:
             try:
                 return int(value)
             except (ValueError, TypeError):
                 return None
         
-        # Leakage detection boolean/enum values
-        if property_name in ["getAB", "getVLV", "getUL", "getDMA", "getALA", "getSMR", 
-                            "getSRE", "getVAC", "getVAT"]:
+        # Documented numeric properties (settings)
+        if property_name in DOCUMENTED_NUMERIC_PROPERTIES:
             try:
                 return int(value)
             except (ValueError, TypeError):
                 return None
         
-        # Unknown numeric constants
-        if property_name in ["getPA1", "getPA2", "getPA3", "getVS1", "getVS2", "getVS3",
-                            "getBTM", "getBTS", "getCOR", "getDEN", "getDHC", "getFWM", 
-                            "getFWS", "getHOT", "getLGO", "getMOF", "getREV", "getRPE", 
-                            "getSDR", "getWHU", "getCHG", "getRDO"]:
+        # Unknown/undocumented numeric constants
+        if property_name in UNKNOWN_NUMERIC_PROPERTIES:
             try:
                 return int(value)
             except (ValueError, TypeError):
