@@ -13,8 +13,10 @@ from homeassistant.components.sensor import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     PERCENTAGE,
+    UnitOfMass,
     UnitOfPressure,
     UnitOfTemperature,
+    UnitOfTime,
     UnitOfVolume,
     UnitOfVolumeFlowRate,
 )
@@ -39,9 +41,18 @@ from .const import (
     PROPERTY_NAME,
     PROPERTY_OUTLET_HARDNESS,
     PROPERTY_PRESSURE,
+    PROPERTY_SALT_DAYS1,
+    PROPERTY_SALT_DAYS2,
+    PROPERTY_SALT_DAYS3,
     PROPERTY_SALT_TANK1,
     PROPERTY_SALT_TANK2,
     PROPERTY_SALT_TANK3,
+    PROPERTY_SALT_VOLUME1,
+    PROPERTY_SALT_VOLUME2,
+    PROPERTY_SALT_VOLUME3,
+    PROPERTY_SALT_WEEKS1,
+    PROPERTY_SALT_WEEKS2,
+    PROPERTY_SALT_WEEKS3,
     PROPERTY_SERIAL,
     PROPERTY_TEMPERATURE,
     PROPERTY_TOTAL_REGEN,
@@ -83,14 +94,14 @@ def _create_entities_for_serial(coordinator: SyrConnectLocalCoordinator, serial:
         )
     )
 
-    # Salt level sensors (only if present or data not yet available)
+    # Resin capacity sensors (getCS1/2/3 - remaining capacity of resin, not salt level)
     if device_data is None or device_data.get(PROPERTY_SALT_TANK1) is not None:
         entities.append(
             SyrSensor(
                 coordinator,
                 serial,
                 PROPERTY_SALT_TANK1,
-                "Salt Level Tank 1",
+                "Resin Capacity Tank 1",
                 PERCENTAGE,
                 None,
                 SensorStateClass.MEASUREMENT,
@@ -103,7 +114,7 @@ def _create_entities_for_serial(coordinator: SyrConnectLocalCoordinator, serial:
                 coordinator,
                 serial,
                 PROPERTY_SALT_TANK2,
-                "Salt Level Tank 2",
+                "Resin Capacity Tank 2",
                 PERCENTAGE,
                 None,
                 SensorStateClass.MEASUREMENT,
@@ -116,8 +127,88 @@ def _create_entities_for_serial(coordinator: SyrConnectLocalCoordinator, serial:
                 coordinator,
                 serial,
                 PROPERTY_SALT_TANK3,
-                "Salt Level Tank 3",
+                "Resin Capacity Tank 3",
                 PERCENTAGE,
+                None,
+                SensorStateClass.MEASUREMENT,
+            )
+        )
+
+    # Actual salt volume sensors (getSV1/2/3 - salt stored in kg)
+    if device_data is None or device_data.get(PROPERTY_SALT_VOLUME1) is not None:
+        entities.append(
+            SyrSensor(
+                coordinator,
+                serial,
+                PROPERTY_SALT_VOLUME1,
+                "Salt Volume Tank 1",
+                UnitOfMass.KILOGRAMS,
+                None,
+                SensorStateClass.MEASUREMENT,
+            )
+        )
+
+    if device_data is None or (device_data.get(PROPERTY_SALT_VOLUME2) is not None and device_data.get(PROPERTY_SALT_VOLUME2) != 0):
+        entities.append(
+            SyrSensor(
+                coordinator,
+                serial,
+                PROPERTY_SALT_VOLUME2,
+                "Salt Volume Tank 2",
+                UnitOfMass.KILOGRAMS,
+                None,
+                SensorStateClass.MEASUREMENT,
+            )
+        )
+
+    if device_data is None or (device_data.get(PROPERTY_SALT_VOLUME3) is not None and device_data.get(PROPERTY_SALT_VOLUME3) != 0):
+        entities.append(
+            SyrSensor(
+                coordinator,
+                serial,
+                PROPERTY_SALT_VOLUME3,
+                "Salt Volume Tank 3",
+                UnitOfMass.KILOGRAMS,
+                None,
+                SensorStateClass.MEASUREMENT,
+            )
+        )
+
+    # Salt duration in days (getSD1/2/3 - salt lasts for n days)
+    if device_data is None or device_data.get(PROPERTY_SALT_DAYS1) is not None:
+        entities.append(
+            SyrSensor(
+                coordinator,
+                serial,
+                PROPERTY_SALT_DAYS1,
+                "Salt Remaining Days Tank 1",
+                UnitOfTime.DAYS,
+                None,
+                SensorStateClass.MEASUREMENT,
+            )
+        )
+
+    if device_data is None or (device_data.get(PROPERTY_SALT_DAYS2) is not None and device_data.get(PROPERTY_SALT_DAYS2) != 0):
+        entities.append(
+            SyrSensor(
+                coordinator,
+                serial,
+                PROPERTY_SALT_DAYS2,
+                "Salt Remaining Days Tank 2",
+                UnitOfTime.DAYS,
+                None,
+                SensorStateClass.MEASUREMENT,
+            )
+        )
+
+    if device_data is None or (device_data.get(PROPERTY_SALT_DAYS3) is not None and device_data.get(PROPERTY_SALT_DAYS3) != 0):
+        entities.append(
+            SyrSensor(
+                coordinator,
+                serial,
+                PROPERTY_SALT_DAYS3,
+                "Salt Remaining Days Tank 3",
+                UnitOfTime.DAYS,
                 None,
                 SensorStateClass.MEASUREMENT,
             )

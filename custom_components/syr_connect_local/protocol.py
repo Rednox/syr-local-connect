@@ -105,6 +105,20 @@ class SyrProtocol:
                 return int(value)
             except (ValueError, TypeError):
                 return None
+        
+        if property_name in ["getSV1", "getSV2", "getSV3"]:
+            # Salt volume in kg
+            try:
+                return int(value)
+            except (ValueError, TypeError):
+                return None
+        
+        if property_name in ["getSD1", "getSD2", "getSD3", "getSW1", "getSW2", "getSW3"]:
+            # Salt duration in days/weeks
+            try:
+                return int(value)
+            except (ValueError, TypeError):
+                return None
                 
         if property_name in ["getIWH", "getOWH"]:
             # Water hardness
