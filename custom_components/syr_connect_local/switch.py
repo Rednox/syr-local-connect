@@ -7,6 +7,7 @@ from typing import Any
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -19,6 +20,7 @@ from .const import (
     PROPERTY_SERIAL,
     PROPERTY_TYPE,
     PROPERTY_VERSION,
+    SIGNAL_NEW_DEVICE,
 )
 from .coordinator import SyrConnectLocalCoordinator
 
@@ -48,6 +50,21 @@ async def async_setup_entry(
         # entities.append(SyrPowerSwitch(coordinator, serial))
 
     async_add_entities(entities)
+
+    # Listen for newly discovered devices and add entities dynamically
+    async def _handle_new_device(serial: str) -> None:
+        _LOGGER.info("Switch platform: new device signal for %s", serial)
+        device_data = coordinator.get_device_data(serial)
+        if device_data:
+            new_entities: list[SwitchEntity] = []
+            # Note: Power switch is experimental and may not work on all devices
+            # Uncomment when ready to test:
+            # new_entities.append(SyrPowerSwitch(coordinator, serial))
+            if new_entities:
+                _LOGGER.info("Switch platform: adding %d entities for %s", len(new_entities), serial)
+                async_add_entities(new_entities)
+
+    async_dispatcher_connect(hass, SIGNAL_NEW_DEVICE, _handle_new_device)
 
 
 class SyrSwitch(CoordinatorEntity, SwitchEntity):

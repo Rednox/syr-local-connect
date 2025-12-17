@@ -10,6 +10,8 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 
+from homeassistant.helpers.dispatcher import async_dispatcher_send
+
 from .const import (
     CONF_CERT_FILE,
     CONF_HTTPS_PORT,
@@ -22,6 +24,7 @@ from .const import (
     DEFAULT_HTTPS_PORT,
     DEFAULT_HTTP_PORT,
     DOMAIN,
+    SIGNAL_NEW_DEVICE,
 )
 from .coordinator import SyrConnectLocalCoordinator
 from .server import SyrConnectServer
@@ -74,11 +77,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
 
     # Set up device discovery callback
-    def on_device_discovered(serial: str, properties: dict[str, str]) -> None:
-        """Handle device discovery."""
+    async def on_device_discovered_async(serial: str, properties: dict[str, str]) -> None:
+        """Handle device discovery asynchronously."""
         _LOGGER.info("Device discovered: %s", serial)
         # Trigger coordinator update to create entities
-        hass.async_create_task(coordinator.async_request_refresh())
+        await coordinator.async_request_refresh()
+        # Signal to platform listeners after coordinator has updated
+        async_dispatcher_send(hass, SIGNAL_NEW_DEVICE, serial)
+
+    def on_device_discovered(serial: str, properties: dict[str, str]) -> None:
+        """Handle device discovery."""
+        hass.async_create_task(on_device_discovered_async(serial, properties))
 
     def on_device_update(serial: str, properties: dict[str, str]) -> None:
         """Handle device update."""

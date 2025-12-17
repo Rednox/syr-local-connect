@@ -244,6 +244,10 @@ LEAKAGE_PROPERTIES = [
     PROPERTY_MICROLEAKAGE_COUNT,
 ]
 
+# Signals
+SIGNAL_NEW_DEVICE: Final = f"{DOMAIN}_new_device"
+SIGNAL_DEVICE_UPDATE: Final = f"{DOMAIN}_device_update"
+
 # Events
 EVENT_REGENERATION_STARTED: Final = f"{DOMAIN}_regeneration_started"
 EVENT_REGENERATION_COMPLETED: Final = f"{DOMAIN}_regeneration_completed"
