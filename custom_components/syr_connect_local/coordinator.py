@@ -74,4 +74,19 @@ class SyrConnectLocalCoordinator(DataUpdateCoordinator[dict[str, dict[str, Any]]
 
     def queue_command(self, serial: str, command: str, value: str) -> bool:
         """Queue a command for a device."""
-        return self.server.queue_command(serial, command, value)
+        success = self.server.queue_command(serial, command, value)
+        if success:
+            _LOGGER.info(
+                "Command queued for device %s: %s=%s",
+                serial,
+                command,
+                value,
+            )
+        else:
+            _LOGGER.error(
+                "Failed to queue command for device %s: %s=%s",
+                serial,
+                command,
+                value,
+            )
+        return success

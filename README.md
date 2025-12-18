@@ -33,6 +33,19 @@ Ports (from [docker-compose.yml](docker-compose.yml)):
    - Enable HTTPS: only if your device uses HTTPS (firmware ≈ 1.9+)
 3. Submit and wait for your device to connect. Entities will appear after first data.
 
+### Entities & Controls
+
+- Sensors and binary sensors are added automatically when the device first connects.
+- **Start Regeneration button** (entity category: config) triggers an immediate regeneration (`setSIR=0`).
+- Services: `syr_connect_local.start_regeneration` and `syr_connect_local.update_parameter` for direct commands.
+
+### Logging & Safety
+
+- Polling responses now include only getters; setters are sent **only** when you press the button or call a service.
+- Command flow is logged at INFO level:
+  - `Command queued for device <serial>: <cmd>=<value>`
+  - `Sending N commands to device <serial>: ...`
+
 ## HTTPS (Optional)
 
 If enabling HTTPS, place a certificate and key in HA’s `/config`:

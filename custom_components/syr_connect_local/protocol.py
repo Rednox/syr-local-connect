@@ -123,8 +123,12 @@ class SyrProtocol:
 
     @staticmethod
     def create_command_request(commands: list[str]) -> dict[str, str]:
-        """Create a command request dictionary (empty values for getters)."""
-        return {cmd: "" for cmd in commands}
+        """Create a command request dictionary for getters only.
+
+        Defensively filter out any setters to avoid accidentally sending
+        commands in periodic polling responses.
+        """
+        return {cmd: "" for cmd in commands if SyrProtocol.is_getter(cmd)}
 
     @staticmethod
     def is_getter(property_name: str) -> bool:

@@ -6,6 +6,7 @@ import logging
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -51,13 +52,12 @@ async def async_setup_entry(
     # Listen for newly discovered devices and add entities dynamically
     async def _handle_new_device(serial: str) -> None:
         _LOGGER.info("Button platform: new device signal for %s", serial)
-        device_data = coordinator.get_device_data(serial)
-        if device_data:
-            new_entities: list[ButtonEntity] = [
-                SyrStartRegenerationButton(coordinator, serial)
-            ]
-            _LOGGER.info("Button platform: adding %d entities for %s", len(new_entities), serial)
-            async_add_entities(new_entities)
+        # Create button entities - device_data will be available when coordinator updates
+        new_entities: list[ButtonEntity] = [
+            SyrStartRegenerationButton(coordinator, serial)
+        ]
+        _LOGGER.info("Button platform: adding %d entities for %s", len(new_entities), serial)
+        async_add_entities(new_entities)
 
     async_dispatcher_connect(hass, SIGNAL_NEW_DEVICE, _handle_new_device)
 
@@ -76,6 +76,8 @@ class SyrStartRegenerationButton(CoordinatorEntity, ButtonEntity):
         self._attr_name = "Start Regeneration"
         self._attr_unique_id = f"{serial}_start_regeneration"
         self._attr_icon = "mdi:refresh"
+        self._attr_entity_category = EntityCategory.CONFIG
+        self._attr_has_entity_name = True
 
         # Set device info
         device_data = coordinator.get_device_data(serial)
@@ -91,6 +93,16 @@ class SyrStartRegenerationButton(CoordinatorEntity, ButtonEntity):
             "model": f"{firmware} Type {device_type}" if firmware and device_type else "LEX Plus",
             "sw_version": version,
         }
+
+    @property
+    def available(self) -> bool:
+        """Return if entity is available."""
+        return self.coordinator.last_update_success and self._serial in self.coordinator.devices
+
+    @property
+    def state(self) -> str:
+        """Expose a stable state to avoid showing unknown in UI."""
+        return "unpressed"
 
     async def async_press(self) -> None:
         """Handle the button press."""
