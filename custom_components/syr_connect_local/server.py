@@ -42,12 +42,25 @@ class DeviceState:
     def queue_command(self, command: str, value: str) -> None:
         """Queue a command to be sent to the device."""
         self.pending_commands[command] = value
-        _LOGGER.debug(
-            "Queued command %s=%s for device %s", command, value, self.serial_number
+        _LOGGER.info(
+            "[CMD_QUEUE] Device %s (obj=%s): Queued %s=%s (total pending: %d)",
+            self.serial_number,
+            id(self),
+            command,
+            value,
+            len(self.pending_commands),
         )
 
     def get_pending_commands(self) -> dict[str, str]:
         """Get and clear pending commands."""
+        count = len(self.pending_commands)
+        _LOGGER.info(
+            "[CMD_GET] Device %s (obj=%s): Retrieving %d pending commands: %s",
+            self.serial_number,
+            id(self),
+            count,
+            list(self.pending_commands.keys()) if count > 0 else "none",
+        )
         commands = self.pending_commands.copy()
         self.pending_commands.clear()
         return commands
@@ -183,14 +196,11 @@ class SyrConnectServer:
                 )
 
             # Get or create device state
-            if serial not in self.devices:
+            is_new_device = serial not in self.devices
+            if is_new_device:
                 _LOGGER.info("New device discovered: %s", serial)
                 device = DeviceState(serial)
                 self.devices[serial] = device
-
-                # Notify about new device
-                if self.on_device_discovered:
-                    self.on_device_discovered(serial, properties)
             else:
                 device = self.devices[serial]
 
@@ -199,9 +209,16 @@ class SyrConnectServer:
             device.last_seen = asyncio.get_event_loop().time()
 
             # Mark as identified after first complete update
-            if not device.is_identified and len(properties) > 5:
+            was_unidentified = not device.is_identified
+            if was_unidentified and len(properties) > 5:
                 device.is_identified = True
                 _LOGGER.info("Device %s fully identified", serial)
+
+            # Notify about new device AFTER it's been identified
+            # This ensures coordinator can fetch device data when entities are created
+            if is_new_device and device.is_identified:
+                if self.on_device_discovered:
+                    self.on_device_discovered(serial, properties)
 
             # Notify about device update
             if self.on_device_update:
@@ -334,6 +351,11 @@ class SyrConnectServer:
     def queue_command(self, serial: str, command: str, value: str) -> bool:
         """Queue a command for a device."""
         device = self.get_device(serial)
+        _LOGGER.info(
+            "[SERVER_QUEUE] For serial %s: got device obj=%s from self.devices",
+            serial,
+            id(device) if device else "None",
+        )
         if device:
             device.queue_command(command, value)
             return True

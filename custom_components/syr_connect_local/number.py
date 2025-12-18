@@ -1,6 +1,7 @@
 """Number platform for SYR Connect Local integration."""
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from homeassistant.components.number import NumberEntity, NumberMode
@@ -208,7 +209,10 @@ class SyrNumber(CoordinatorEntity, NumberEntity):
         
         if success:
             _LOGGER.info("Set %s to %s for device %s", self._attr_name, int_value, self._serial)
-            # Request immediate update
+            # Wait for device to process the command and send updated value back
+            # Device polls approximately every 10-11 seconds, response takes 2-3 seconds
+            await asyncio.sleep(5)
+            # Request update to fetch new value from device
             await self.coordinator.async_request_refresh()
         else:
             _LOGGER.error("Failed to set %s for device %s", self._attr_name, self._serial)
