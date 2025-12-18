@@ -225,7 +225,12 @@ class SyrConnectServer:
             # Add any pending commands (setters)
             pending = device.get_pending_commands()
             if pending:
-                _LOGGER.debug("Adding %d pending commands for device %s", len(pending), serial)
+                _LOGGER.info(
+                    "Sending %d commands to device %s: %s",
+                    len(pending),
+                    serial,
+                    ", ".join(f"{k}={v}" for k, v in pending.items()),
+                )
                 response_data.update(pending)
 
             # Generate XML response
