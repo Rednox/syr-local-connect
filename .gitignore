@@ -102,3 +102,4 @@ custom_components/syr_connect_local/certs/
 home-assistant.log
 home-assistant_v2.db
 .HA_VERSION
+.merge-summary
