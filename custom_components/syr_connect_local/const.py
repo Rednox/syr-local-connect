@@ -69,8 +69,13 @@ PROPERTY_SALT_WEEKS3: Final = "getSW3"  # Salt lasts for n weeks tank 3
 # Water flow and pressure
 PROPERTY_FLOW: Final = "getFLO"  # Current water flow (L/min)
 PROPERTY_FLOW_COUNT: Final = "getFCO"  # Flow counter
+PROPERTY_MAX_FLOW: Final = "getMXF"  # Maximum flow (L/min)
 PROPERTY_PRESSURE: Final = "getPRS"  # Water pressure (bar * 10)
+PROPERTY_MAX_PRESSURE: Final = "getMXP"  # Maximum pressure
+PROPERTY_MIN_PRESSURE: Final = "getMNP"  # Minimum pressure
 PROPERTY_POWER_STATE: Final = "getPST"  # Power state (0=off, 1=on)
+PROPERTY_MICROPULSE_RATE: Final = "getMPR"  # Micropulse rate
+PROPERTY_CHARGE: Final = "getCHG"  # Charge setting
 
 # Capacity and residual
 PROPERTY_CAPACITY: Final = "getRES"  # Remaining capacity (L)
@@ -91,6 +96,7 @@ PROPERTY_INCOMPLETE_REGEN: Final = "getINR"  # Incomplete regeneration count
 
 # Regeneration settings
 PROPERTY_REGEN_MODE: Final = "getRTM"  # Regeneration mode
+PROPERTY_REGEN_TYPE: Final = "getRTY"  # Regeneration type
 PROPERTY_REGEN_TIME_HOUR: Final = "getRTH"  # Regeneration time hour
 PROPERTY_REGEN_WEEKDAYS: Final = "getRPW"  # Regeneration weekdays
 PROPERTY_REGEN_PERIOD_DAYS: Final = "getRPD"  # Regeneration period days
@@ -118,7 +124,18 @@ PROPERTY_HOURLY_FRIDAY: Final = "getFHF"  # Friday hourly
 PROPERTY_HOURLY_SATURDAY: Final = "getSHF"  # Saturday hourly
 PROPERTY_HOURLY_SUNDAY: Final = "getNHF"  # Sunday hourly
 
+# Daily consumption (for each day of the week)
+PROPERTY_CONSUMPTION_TUESDAY_DAILY: Final = "getTUF"  # Tuesday daily consumption (L)
+PROPERTY_CONSUMPTION_WEDNESDAY_DAILY: Final = "getWEF"  # Wednesday daily consumption (L)
+PROPERTY_CONSUMPTION_THURSDAY_DAILY: Final = "getTHF"  # Thursday daily consumption (L)
+PROPERTY_CONSUMPTION_FRIDAY_DAILY: Final = "getFRF"  # Friday daily consumption (L)
+PROPERTY_CONSUMPTION_SATURDAY_DAILY: Final = "getSAF"  # Saturday daily consumption (L)
+PROPERTY_CONSUMPTION_SUNDAY_DAILY: Final = "getSUF"  # Sunday daily consumption (L)
+PROPERTY_CONSUMPTION_TOTAL_FLOW: Final = "getTFO"  # Total flow consumption
+PROPERTY_CONSUMPTION_UNKNOWN_WEEKLY: Final = "getUWF"  # Unknown weekly consumption
+
 # Date information
+PROPERTY_DATE: Final = "getDAT"  # Current date
 PROPERTY_DATE_DAY: Final = "getHED"  # Current day
 PROPERTY_DATE_MONTH: Final = "getHEM"  # Current month
 PROPERTY_DATE_YEAR: Final = "getHEY"  # Current year
@@ -136,6 +153,55 @@ PROPERTY_LEAKAGE_USER_PROFILE: Final = "getUL"  # User profile (0=present, 1=abs
 PROPERTY_TEMPERATURE: Final = "getCEL"  # Water temperature (1/10 °C)
 PROPERTY_MICROLEAKAGE_COUNT: Final = "getNPS"  # Microleakage count
 
+# Leakage protection - unknown/undocumented properties (LEX Plus SL models)
+PROPERTY_LEAKAGE_DMA: Final = "getDMA"  # Leakage detection DMA (unknown)
+PROPERTY_LEAKAGE_AVO: Final = "getAVO"  # Leakage detection AVO (unknown)
+PROPERTY_LEAKAGE_BSA: Final = "getBSA"  # Leakage detection BSA (unknown)
+PROPERTY_LEAKAGE_DBD: Final = "getDBD"  # Leakage detection DBD (unknown)
+PROPERTY_LEAKAGE_DBT: Final = "getDBT"  # Leakage detection DBT (unknown)
+PROPERTY_LEAKAGE_DST: Final = "getDST"  # Leakage detection DST (unknown)
+PROPERTY_LEAKAGE_DCM: Final = "getDCM"  # Leakage detection DCM (unknown)
+PROPERTY_LEAKAGE_DOM: Final = "getDOM"  # Leakage detection DOM (unknown)
+PROPERTY_LEAKAGE_DPL: Final = "getDPL"  # Leakage detection DPL (unknown)
+PROPERTY_LEAKAGE_DTC: Final = "getDTC"  # Leakage detection DTC (unknown)
+PROPERTY_LEAKAGE_DRP: Final = "getDRP"  # Leakage detection DRP (unknown)
+PROPERTY_LEAKAGE_ALA: Final = "getALA"  # Leakage alarm (unknown)
+PROPERTY_LEAKAGE_TN: Final = "getTN"  # Leakage TN (unknown)
+PROPERTY_LEAKAGE_SMR: Final = "getSMR"  # Leakage SMR (unknown)
+PROPERTY_LEAKAGE_SRE: Final = "getSRE"  # Leakage SRE (unknown)
+PROPERTY_LEAKAGE_VAC: Final = "getVAC"  # Leakage VAC (unknown)
+PROPERTY_LEAKAGE_VAT: Final = "getVAT"  # Leakage VAT (unknown)
+
+# Network settings
+PROPERTY_LAN_MODE: Final = "getLAN"  # LAN mode setting
+PROPERTY_NETWORK_CONFIG: Final = "getNET"  # Network configuration
+PROPERTY_DNS_SERVER: Final = "getDNS"  # DNS server address
+PROPERTY_SUBNET_MASK: Final = "getSNM"  # Subnet mask
+PROPERTY_TIMEZONE: Final = "getTMZ"  # Timezone setting
+
+# Unknown/undocumented properties
+PROPERTY_PARAM1: Final = "getPA1"  # Parameter 1 (unknown)
+PROPERTY_PARAM2: Final = "getPA2"  # Parameter 2 (unknown)
+PROPERTY_PARAM3: Final = "getPA3"  # Parameter 3 (unknown)
+PROPERTY_VALUE1: Final = "getVS1"  # Value 1 (unknown)
+PROPERTY_VALUE2: Final = "getVS2"  # Value 2 (unknown)
+PROPERTY_VALUE3: Final = "getVS3"  # Value 3 (unknown)
+PROPERTY_NOTES: Final = "getNOT"  # Notes (usually empty)
+PROPERTY_BTM: Final = "getBTM"  # BTM (unknown constant)
+PROPERTY_BTS: Final = "getBTS"  # BTS (unknown constant)
+PROPERTY_COR: Final = "getCOR"  # COR (unknown constant)
+PROPERTY_DEN: Final = "getDEN"  # DEN (unknown constant)
+PROPERTY_DHC: Final = "getDHC"  # DHC (unknown constant)
+PROPERTY_FWM: Final = "getFWM"  # FWM (unknown constant)
+PROPERTY_FWS: Final = "getFWS"  # FWS (unknown constant)
+PROPERTY_HOT: Final = "getHOT"  # HOT (unknown constant)
+PROPERTY_IPH: Final = "getIPH"  # IPH (unknown constant)
+PROPERTY_LGO: Final = "getLGO"  # LGO (unknown constant)
+PROPERTY_MOF: Final = "getMOF"  # MOF (unknown constant)
+PROPERTY_REV: Final = "getREV"  # REV (unknown constant)
+PROPERTY_RPE: Final = "getRPE"  # RPE (unknown constant)
+PROPERTY_SDR: Final = "getSDR"  # SDR (unknown constant)
+
 # Setters (commands)
 SETTER_START_REGEN: Final = "setSIR"  # Start immediate regeneration (0 to trigger)
 SETTER_VALVE_SHUTOFF: Final = "setAB"  # Set valve shut-off
@@ -151,6 +217,17 @@ SETTER_SALT_VOLUME3: Final = "setSV3"  # Set salt volume tank 3 (kg)
 SETTER_REGEN_PERIOD_DAYS: Final = "setRPD"  # Set regeneration period (days)
 SETTER_REGEN_WEEKDAYS: Final = "setRPW"  # Set regeneration weekdays
 SETTER_REGEN_TIME_HOUR: Final = "setRTH"  # Set regeneration time (hour)
+SETTER_REGEN_MODE: Final = "setRTM"  # Set regeneration mode
+SETTER_REGEN_TYPE: Final = "setRTY"  # Set regeneration type
+SETTER_INLET_HARDNESS: Final = "setIWH"  # Set inlet water hardness
+SETTER_OUTLET_HARDNESS: Final = "setOWH"  # Set outlet water hardness (residual)
+SETTER_HARDNESS_UNIT: Final = "setWHU"  # Set water hardness unit
+SETTER_SALT_DOSAGE: Final = "setRDO"  # Set salt dosage
+SETTER_POWER_STATE: Final = "setPST"  # Set power state
+SETTER_WATER_WORKS_FLOW: Final = "setDWF"  # Set water works flow
+SETTER_FLOW_COUNTER: Final = "setFCO"  # Set flow counter
+SETTER_MICROPULSE_RATE: Final = "setMPR"  # Set micropulse rate
+SETTER_CHARGE: Final = "setCHG"  # Set charge
 
 # Basic commands requested on first connection
 BASIC_COMMANDS = [
@@ -187,7 +264,7 @@ ALL_COMMANDS = [
     PROPERTY_MAC,
     PROPERTY_MANUFACTURER,
     PROPERTY_NORMAL_REGEN,
-    "getNOT",  # Notes (usually empty)
+    PROPERTY_NOTES,  # Notes (usually empty)
     PROPERTY_OUTLET_HARDNESS,
     PROPERTY_PRESSURE,
     PROPERTY_POWER_STATE,
@@ -202,7 +279,7 @@ ALL_COMMANDS = [
     PROPERTY_REGEN_TIME_TOTAL,
     PROPERTY_REGEN_MODE,
     PROPERTY_SERVICE_REGEN,
-    "getSRE",  # Unknown
+    PROPERTY_LEAKAGE_SRE,  # Unknown
     PROPERTY_SALT_RANGE1,
     PROPERTY_SALT_RANGE2,
     PROPERTY_SALT_RANGE3,
@@ -211,10 +288,28 @@ ALL_COMMANDS = [
     PROPERTY_SALT_VOLUME2,
     PROPERTY_SALT_VOLUME3,
     PROPERTY_TOTAL_REGEN,
-    "getVS1",  # Unknown
-    "getVS2",  # Unknown
-    "getVS3",  # Unknown
+    PROPERTY_VALUE1,  # Unknown
+    PROPERTY_VALUE2,  # Unknown
+    PROPERTY_VALUE3,  # Unknown
     PROPERTY_HARDNESS_UNIT,
+    # Additional properties from protocol
+    PROPERTY_PARAM1,
+    PROPERTY_PARAM2,
+    PROPERTY_PARAM3,
+    PROPERTY_DEN,
+    PROPERTY_REV,
+    PROPERTY_IPH,
+    PROPERTY_BTM,
+    PROPERTY_BTS,
+    PROPERTY_COR,
+    PROPERTY_DHC,
+    PROPERTY_FWM,
+    PROPERTY_FWS,
+    PROPERTY_HOT,
+    PROPERTY_LGO,
+    PROPERTY_MOF,
+    PROPERTY_RPE,
+    PROPERTY_SDR,
 ]
 
 # Additional properties for extended monitoring
@@ -226,6 +321,15 @@ EXTENDED_PROPERTIES = [
     PROPERTY_CONSUMPTION_MONTH,
     PROPERTY_CONSUMPTION_LAST_MONTH,
     PROPERTY_CONSUMPTION_TOTAL,
+    PROPERTY_CONSUMPTION_TUESDAY_DAILY,
+    PROPERTY_CONSUMPTION_WEDNESDAY_DAILY,
+    PROPERTY_CONSUMPTION_THURSDAY_DAILY,
+    PROPERTY_CONSUMPTION_FRIDAY_DAILY,
+    PROPERTY_CONSUMPTION_SATURDAY_DAILY,
+    PROPERTY_CONSUMPTION_SUNDAY_DAILY,
+    PROPERTY_CONSUMPTION_TOTAL_FLOW,
+    PROPERTY_CONSUMPTION_UNKNOWN_WEEKLY,
+    PROPERTY_DATE,
     PROPERTY_DATE_MONTH,
     PROPERTY_DATE_YEAR,
     PROPERTY_START_DAY,
@@ -237,6 +341,12 @@ EXTENDED_PROPERTIES = [
     PROPERTY_SALT_WEEKS1,
     PROPERTY_SALT_WEEKS2,
     PROPERTY_SALT_WEEKS3,
+    PROPERTY_MAX_FLOW,
+    PROPERTY_MAX_PRESSURE,
+    PROPERTY_MIN_PRESSURE,
+    PROPERTY_MICROPULSE_RATE,
+    PROPERTY_CHARGE,
+    PROPERTY_REGEN_TYPE,
 ]
 
 # Leakage protection properties (for LEX Plus SL models)
@@ -249,6 +359,33 @@ LEAKAGE_PROPERTIES = [
     PROPERTY_LEAKAGE_USER_PROFILE,
     PROPERTY_TEMPERATURE,
     PROPERTY_MICROLEAKAGE_COUNT,
+    # Unknown leakage properties
+    PROPERTY_LEAKAGE_DMA,
+    PROPERTY_LEAKAGE_AVO,
+    PROPERTY_LEAKAGE_BSA,
+    PROPERTY_LEAKAGE_DBD,
+    PROPERTY_LEAKAGE_DBT,
+    PROPERTY_LEAKAGE_DST,
+    PROPERTY_LEAKAGE_DCM,
+    PROPERTY_LEAKAGE_DOM,
+    PROPERTY_LEAKAGE_DPL,
+    PROPERTY_LEAKAGE_DTC,
+    PROPERTY_LEAKAGE_DRP,
+    PROPERTY_LEAKAGE_ALA,
+    PROPERTY_LEAKAGE_TN,
+    PROPERTY_LEAKAGE_SMR,
+    PROPERTY_LEAKAGE_SRE,
+    PROPERTY_LEAKAGE_VAC,
+    PROPERTY_LEAKAGE_VAT,
+]
+
+# Network configuration properties
+NETWORK_PROPERTIES = [
+    PROPERTY_LAN_MODE,
+    PROPERTY_NETWORK_CONFIG,
+    PROPERTY_DNS_SERVER,
+    PROPERTY_SUBNET_MASK,
+    PROPERTY_TIMEZONE,
 ]
 
 # Signals

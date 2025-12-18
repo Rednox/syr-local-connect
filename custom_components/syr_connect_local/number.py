@@ -1,6 +1,7 @@
 """Number platform for SYR Connect Local integration."""
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from homeassistant.components.number import NumberEntity, NumberMode
@@ -171,6 +172,21 @@ class SyrNumber(CoordinatorEntity, NumberEntity):
             "model": f"{firmware} Type {device_type}" if firmware and device_type else "LEX Plus",
             "sw_version": version,
         }
+        
+        # Enable entity by default only if property is available from device
+        self._attr_entity_registry_enabled_default = (
+            device_data is not None and device_data.get(property_key) is not None
+        )
+
+    @property
+    def available(self) -> bool:
+        """Return if entity is available."""
+        if not self.coordinator.last_update_success or self._serial not in self.coordinator.devices:
+            return False
+        
+        # Entity is available only if the property exists in device data
+        device_data = self.coordinator.get_device_data(self._serial)
+        return device_data is not None and device_data.get(self._property_key) is not None
 
     @property
     def native_value(self) -> float | None:
@@ -193,7 +209,10 @@ class SyrNumber(CoordinatorEntity, NumberEntity):
         
         if success:
             _LOGGER.info("Set %s to %s for device %s", self._attr_name, int_value, self._serial)
-            # Request immediate update
+            # Wait for device to process the command and send updated value back
+            # Device polls approximately every 10-11 seconds, response takes 2-3 seconds
+            await asyncio.sleep(5)
+            # Request update to fetch new value from device
             await self.coordinator.async_request_refresh()
         else:
             _LOGGER.error("Failed to set %s for device %s", self._attr_name, self._serial)

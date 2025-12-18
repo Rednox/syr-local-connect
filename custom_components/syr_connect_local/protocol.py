@@ -5,6 +5,50 @@ from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
 
+# Property groups for type conversion
+# Numeric integer properties
+NUMERIC_INT_PROPERTIES = [
+    "getFLO", "getPRS", "getRES", "getCS1", "getCS2", "getCS3",
+    "getMXF", "getMXP", "getMNP", "getMPR",
+    "getSV1", "getSV2", "getSV3",
+    "getSD1", "getSD2", "getSD3", "getSW1", "getSW2", "getSW3",
+    "getIWH", "getOWH",
+    "getTOR", "getNOR", "getSCR", "getINR", "getCYN",
+    "getRPD", "getRPW", "getRTH", "getRTM", "getRTY",
+    "getFCO", "getDWF",
+]
+
+# Consumption values in liters
+CONSUMPTION_PROPERTIES = [
+    "getTOF", "getYEF", "getCWF", "getLWF", "getCMF", "getLMF", "getCOF",
+    "getTUF", "getWEF", "getTHF", "getFRF", "getSAF", "getSUF",
+    "getTFO", "getUWF",
+]
+
+# Leakage detection numeric properties
+LEAKAGE_NUMERIC_PROPERTIES = [
+    "getNPS", "getDBD", "getDBT", "getDST", "getDCM", "getDOM",
+    "getDPL", "getDTC", "getDRP", "getTN", "getLE", "getT2", "getTMP",
+    "getAB", "getVLV", "getUL", "getDMA", "getALA", "getSMR",
+    "getSRE", "getVAC", "getVAT",
+]
+
+# Documented numeric properties (settings and constants)
+DOCUMENTED_NUMERIC_PROPERTIES = [
+    "getWHU", "getCHG", "getRDO",
+]
+
+# Unknown/undocumented numeric properties
+UNKNOWN_NUMERIC_PROPERTIES = [
+    "getPA1", "getPA2", "getPA3", "getVS1", "getVS2", "getVS3",
+    "getBTM", "getBTS", "getCOR", "getDEN", "getDHC", "getFWM",
+    "getFWS", "getHOT", "getLGO", "getMOF", "getREV", "getRPE", "getSDR",
+]
+
+# Boolean properties (0/1 values)
+BOOLEAN_PROPERTIES = ["getRG1", "getRG2", "getRG3", "getPST"]
+
+
 class SyrProtocol:
     """Handle SYR Connect XML protocol parsing and generation."""
 
@@ -102,62 +146,54 @@ class SyrProtocol:
         if not value:
             return None
             
-        # Handle special cases
-        if property_name in ["getFLO", "getPRS", "getRES", "getCS1", "getCS2", "getCS3"]:
-            # Numeric values
-            try:
-                return int(value)
-            except (ValueError, TypeError):
-                return None
-        
-        if property_name in ["getSV1", "getSV2", "getSV3"]:
-            # Salt volume in kg
-            try:
-                return int(value)
-            except (ValueError, TypeError):
-                return None
-        
-        if property_name in ["getSD1", "getSD2", "getSD3", "getSW1", "getSW2", "getSW3"]:
-            # Salt duration in days/weeks
-            try:
-                return int(value)
-            except (ValueError, TypeError):
-                return None
-                
-        if property_name in ["getIWH", "getOWH"]:
-            # Water hardness
-            try:
-                return int(value)
-            except (ValueError, TypeError):
-                return None
-                
+        # Temperature (1/10 °C) - special float conversion
         if property_name == "getCEL":
-            # Temperature (1/10 °C)
             try:
                 return float(value) / 10.0
             except (ValueError, TypeError):
                 return None
                 
+        # UNIX timestamp
         if property_name == "getLAR":
-            # UNIX timestamp
             try:
                 return int(value)
             except (ValueError, TypeError):
                 return None
                 
-        if property_name in ["getRG1", "getRG2", "getRG3", "getPST"]:
-            # Boolean values (0/1)
+        # Boolean values (0/1) - regeneration status, power state
+        if property_name in BOOLEAN_PROPERTIES:
             return value == "1"
             
-        if property_name in ["getTOF", "getYEF", "getCWF", "getLWF", "getCMF", "getLMF", "getCOF"]:
-            # Consumption values
+        # Numeric integer properties (flow, pressure, capacity, etc.)
+        if property_name in NUMERIC_INT_PROPERTIES:
             try:
                 return int(value)
             except (ValueError, TypeError):
                 return None
         
-        if property_name in ["getRPD", "getRPW"]:
-            # Regeneration period (days) and weekdays
+        # Consumption values (all in liters)
+        if property_name in CONSUMPTION_PROPERTIES:
+            try:
+                return int(value)
+            except (ValueError, TypeError):
+                return None
+        
+        # Leakage detection numeric values
+        if property_name in LEAKAGE_NUMERIC_PROPERTIES:
+            try:
+                return int(value)
+            except (ValueError, TypeError):
+                return None
+        
+        # Documented numeric properties (settings)
+        if property_name in DOCUMENTED_NUMERIC_PROPERTIES:
+            try:
+                return int(value)
+            except (ValueError, TypeError):
+                return None
+        
+        # Unknown/undocumented numeric constants
+        if property_name in UNKNOWN_NUMERIC_PROPERTIES:
             try:
                 return int(value)
             except (ValueError, TypeError):
