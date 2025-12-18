@@ -91,7 +91,7 @@ class SyrStartRegenerationButton(CoordinatorEntity, ButtonEntity):
         self._attr_name = "Start Regeneration"
         self._attr_unique_id = f"{serial}_start_regeneration"
         self._attr_icon = "mdi:refresh"
-        self._attr_entity_category = EntityCategory.CONFIG
+        # No entity_category - places button in Controls section
         self._attr_has_entity_name = True
         # Entity is enabled by default since regeneration is a core feature
         self._attr_entity_registry_enabled_default = True
