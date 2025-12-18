@@ -119,6 +119,21 @@ class SyrRegenWeekdaysSelect(CoordinatorEntity, SelectEntity):
             "model": f"{firmware} Type {device_type}" if firmware and device_type else "LEX Plus",
             "sw_version": version,
         }
+        
+        # Enable entity by default only if property is available from device
+        self._attr_entity_registry_enabled_default = (
+            device_data is not None and device_data.get(PROPERTY_REGEN_WEEKDAYS) is not None
+        )
+
+    @property
+    def available(self) -> bool:
+        """Return if entity is available."""
+        if not self.coordinator.last_update_success or self._serial not in self.coordinator.devices:
+            return False
+        
+        # Entity is available only if the property exists in device data
+        device_data = self.coordinator.get_device_data(self._serial)
+        return device_data is not None and device_data.get(PROPERTY_REGEN_WEEKDAYS) is not None
 
     @property
     def current_option(self) -> str | None:
