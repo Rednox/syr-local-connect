@@ -30,6 +30,7 @@ This integration simulates the SYR Connect cloud server locally, allowing you to
 ✅ Automatic device discovery  
 ✅ No cloud dependency  
 ✅ Works with firmware 1.7 and 1.9+  
+✅ DVGW compliance monitoring (DIN 1988 / DIN EN 806 / DIN EN 1717) for regeneration intervals  
 
 ## Quick Start
 

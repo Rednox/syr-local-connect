@@ -246,7 +246,12 @@ class SyrSaltVolumeNumber(SyrNumber):
 
 
 class SyrRegenIntervalNumber(SyrNumber):
-    """Number entity for regeneration interval in days."""
+    """Number entity for regeneration interval in days.
+    
+    According to DVGW (DIN 1988 / DIN EN 806 / DIN EN 1717), the regeneration
+    interval must be maximum 4 days to ensure proper water softening operation
+    and hygiene standards.
+    """
 
     def __init__(
         self,
@@ -262,7 +267,7 @@ class SyrRegenIntervalNumber(SyrNumber):
             "Regeneration Interval",
             "regen_interval_days",
             min_value=1,
-            max_value=30,  # Allow larger values than the 4 days UI limit
+            max_value=4,  # DVGW (DIN 1988/EN 806/EN 1717) requires max 4 days
             step=1,
             unit=UnitOfTime.DAYS,
             icon="mdi:calendar-clock",
