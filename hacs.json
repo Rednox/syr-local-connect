@@ -2,7 +2,6 @@
   "name": "SYR Connect Local",
   "content_in_root": false,
   "render_readme": true,
-  "domains": ["sensor", "binary_sensor", "switch", "button", "number", "select", "time"],
   "iot_class": "local_polling",
   "homeassistant": "2023.1.0"
 }
