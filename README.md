@@ -88,6 +88,7 @@ Key setters (commands we send to the device):
 Notes:
 - All periodic polls request only getters; setters are sent only when you change a control or call a service.
 - The integration queues setters until the device’s next poll, then requests a refresh to show the updated value.
+- **DVGW Compliance**: The regeneration interval is limited to 4 days maximum in accordance with DVGW (DIN 1988 / DIN EN 806 / DIN EN 1717) standards. A compliance sensor will alert if the device interval exceeds this limit.
 
 ## HTTPS (Optional)
 

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
@@ -20,6 +21,7 @@ from .const import (
     PROPERTY_FIRMWARE,
     PROPERTY_FLOW,
     PROPERTY_NAME,
+    PROPERTY_REGEN_PERIOD_DAYS,
     PROPERTY_REGEN_TANK1,
     PROPERTY_REGEN_TANK2,
     PROPERTY_REGEN_TANK3,
@@ -82,6 +84,12 @@ def _create_binary_entities_for_serial(coordinator: SyrConnectLocalCoordinator, 
     entities.append(
         SyrAlarmBinarySensor(coordinator, serial)
     )
+
+    # DVGW compliance sensor for regeneration interval
+    if device_data is None or device_data.get(PROPERTY_REGEN_PERIOD_DAYS) is not None:
+        entities.append(
+            SyrDVGWComplianceBinarySensor(coordinator, serial)
+        )
 
     return entities
 
@@ -240,4 +248,66 @@ class SyrAlarmBinarySensor(SyrBinarySensor):
             # Alarm is active if the value is not empty
             if alarm is not None:
                 return bool(alarm and alarm != "")
+        return None
+
+
+class SyrDVGWComplianceBinarySensor(SyrBinarySensor):
+    """Binary sensor for DVGW regeneration interval compliance.
+    
+    According to DVGW (DIN 1988 / DIN EN 806 / DIN EN 1717), the regeneration
+    interval must be maximum 4 days. This sensor warns when the interval exceeds
+    this regulation.
+    
+    State Values:
+    - ON (True): Regeneration interval exceeds 4 days (non-compliant, problem state)
+    - OFF (False): Regeneration interval is 4 days or less (compliant, normal state)
+    """
+
+    def __init__(
+        self,
+        coordinator: SyrConnectLocalCoordinator,
+        serial: str,
+    ) -> None:
+        """Initialize the DVGW compliance binary sensor."""
+        super().__init__(
+            coordinator,
+            serial,
+            PROPERTY_REGEN_PERIOD_DAYS,
+            "DVGW Regeneration Interval Compliance",
+            BinarySensorDeviceClass.PROBLEM,
+        )
+        # Override unique_id to avoid conflict with number entity
+        self._attr_unique_id = f"{serial}_dvgw_regen_compliance"
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return true if regeneration interval exceeds DVGW maximum (4 days)."""
+        device_data = self.coordinator.get_device_data(self._serial)
+        if device_data:
+            interval = device_data.get(self._property_key)
+            if interval is not None and interval != "":
+                try:
+                    interval_days = int(interval)
+                    # Return True (problem) if interval exceeds 4 days
+                    return interval_days > 4
+                except (ValueError, TypeError):
+                    return None
+        return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return extra state attributes."""
+        device_data = self.coordinator.get_device_data(self._serial)
+        if device_data:
+            interval = device_data.get(self._property_key)
+            if interval is not None and interval != "":
+                try:
+                    interval_days = int(interval)
+                    return {
+                        "current_interval_days": interval_days,
+                        "max_compliant_interval_days": 4,
+                        "regulation": "DVGW (DIN 1988 / DIN EN 806 / DIN EN 1717)",
+                    }
+                except (ValueError, TypeError):
+                    pass
         return None
