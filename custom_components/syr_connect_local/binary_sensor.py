@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
@@ -256,6 +257,10 @@ class SyrDVGWComplianceBinarySensor(SyrBinarySensor):
     According to DVGW (DIN 1988 / DIN EN 806 / DIN EN 1717), the regeneration
     interval must be maximum 4 days. This sensor warns when the interval exceeds
     this regulation.
+    
+    State Values:
+    - ON (True): Regeneration interval exceeds 4 days (non-compliant, problem state)
+    - OFF (False): Regeneration interval is 4 days or less (compliant, normal state)
     """
 
     def __init__(
@@ -290,7 +295,7 @@ class SyrDVGWComplianceBinarySensor(SyrBinarySensor):
         return None
 
     @property
-    def extra_state_attributes(self) -> dict[str, str] | None:
+    def extra_state_attributes(self) -> dict[str, Any] | None:
         """Return extra state attributes."""
         device_data = self.coordinator.get_device_data(self._serial)
         if device_data:
