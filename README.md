@@ -45,9 +45,24 @@ Ports (from [docker-compose.yml](docker-compose.yml)):
 
 ### Entities & Controls
 
-- Sensors and binary sensors are added automatically when the device first connects.
-- **Start Regeneration button** (entity category: config) triggers an immediate regeneration (`setSIR=0`).
-- Services: `syr_connect_local.start_regeneration` and `syr_connect_local.update_parameter` for direct commands.
+The integration automatically creates entities across multiple platforms:
+
+- **Sensors**: Water hardness (inlet/outlet), salt tank capacity/volume, flow rate, pressure, remaining capacity, regeneration counts, water consumption (daily/weekly/monthly)
+- **Binary Sensors**: Regeneration active per tank, alarm status
+- **Buttons**: Start regeneration, manual refresh
+- **Numbers**: Regeneration interval (days), salt volumes per tank, water hardness setters
+- **Selects**: Regeneration weekday preferences (pre-defined schedules or custom)
+- **Time**: Regeneration schedule time picker
+
+**Key Controls**:
+- **Start Regeneration button** (entity category: config) triggers an immediate regeneration (`setSIR=0`)
+- **Regeneration interval/weekday/time**: Configure scheduling via number, select, and time entities
+- **Salt volumes**: Adjust per-tank salt levels via number entities
+- **Water hardness**: Set inlet/outlet hardness values and unit preference
+
+**Services**:
+- `syr_connect_local.start_regeneration`: Trigger immediate regeneration
+- `syr_connect_local.update_parameter`: Generic parameter update for advanced automation
 
 ### Device Overview
 
@@ -65,32 +80,30 @@ Example device view with controls and sensors:
 ## Protocol Getters & Setters (human-readable)
 
 Key getters (read-only data the device sends):
-- `getRPD`: Regeneration interval (days)
-- `getRPW`: Regeneration weekdays bitmask (0–6 = Mon–Sun)
-- `getRTH`: Regeneration hour (0–23)
-- `getSV1`: Salt volume tank 1 (kg)
-- `getOWH` / `getIWH`: Outlet / inlet water hardness
-- `getRES`: Remaining capacity (liters)
-- `getPRS`: Water pressure (bar ×10), `getFLO`: Flow (L/min)
-- `getRG1/2/3`: Regeneration active flags per tank
-- `getALM`: Alarm status, `getSTA`: Status text
+- **Regeneration**: `getRPD` (interval days), `getRPW` (weekdays), `getRTH` (hour), `getRG1/2/3` (active per tank)
+- **Water Quality**: `getIWH` (inlet hardness), `getOWH` (outlet hardness), `getWHU` (hardness unit)
+- **Salt Tanks**: `getSV1/2/3` (volume kg), `getCS1/2/3` (capacity %), `getSD1/2/3` (days remaining), `getSW1/2/3` (weeks remaining)
+- **Flow & Pressure**: `getFLO` (L/min), `getPRS` (bar ×10), `getFCO` (flow counter), `getRES` (remaining capacity liters)
+- **System**: `getALM` (alarm), `getSTA` (status), `getPST` (power state)
+- **Consumption**: `getTOF` (today), `getYEF` (yesterday), `getCWF` (this week), `getCMF` (this month), `getCOF` (total), daily breakdown per weekday
 
 Key setters (commands we send to the device):
-- `setSIR`: Start immediate regeneration (send 0 to trigger)
-- `setRPD`: Set regeneration interval (days)
-- `setRPW`: Set regeneration weekdays bitmask
-- `setRTH`: Set regeneration hour (0–23)
-- `setSV1/2/3`: Set salt volume per tank (kg)
-- `setIWH` / `setOWH`: Set inlet / outlet hardness
-- `setWHU`: Set hardness unit (0=°dH, 1=°fH, 2=°eH)
-- `setAB`: Valve shut-off (1=open, 2=closed) on supported models
+- **Regeneration**: `setSIR` (trigger immediate), `setRPD` (interval days), `setRPW` (weekdays), `setRTH` (hour)
+- **Water Hardness**: `setIWH` (inlet), `setOWH` (outlet), `setWHU` (unit: 0=°dH, 1=°fH, 2=°eH)
+- **Salt Volumes**: `setSV1/2/3` (per tank, kg)
 
-Notes:
-- All periodic polls request only getters; setters are sent only when you change a control or call a service.
-- The integration queues setters until the device’s next poll, then requests a refresh to show the updated value.
-- **DVGW Compliance**: The regeneration interval is limited to 4 days maximum in accordance with DVGW (DIN 1988 / DIN EN 806 / DIN EN 1717) standards. A compliance sensor will alert if the device interval exceeds this limit.
+## Known Limitations & Notes
 
-## HTTPS (Optional)
+- **Power switch**: Control is experimental and commented out pending device-specific testing
+- **Multi-device support**: Available but currently untested in production
+- **DVGW Compliance**: The regeneration interval is limited to 4 days maximum in accordance with DVGW (DIN 1988 / DIN EN 806 / DIN EN 1717) standards. A compliance sensor will alert if the device interval exceeds this limit—the user is responsible for regulatory compliance.
+- **Polling behavior**: All periodic polls request only getters; setters are sent only when you change a control or call a service
+- **Asynchronous updates**: The integration queues setters until the device's next poll, then requests a refresh to show the updated value
+
+## Protocol Notes
+
+- Ensure your network/DNS points the SYR domains to your HA host IP
+- Secrets and HA runtime files are ignored by [.gitignore](.gitignore); keep device-specific config in `homeassistant/config`
 
 If enabling HTTPS, place a certificate and key in HA’s `/config`:
 
@@ -138,11 +151,6 @@ curl -s http://<HA_HOST_IP>:80/echo
 
 Disable when done (they return 404 if disabled).
 
-## Notes
-
-- Ensure your network/DNS points the SYR domains to your HA host IP.
-- Secrets and HA runtime files are ignored by [.gitignore](.gitignore); keep device-specific config in `homeassistant/config`.
-
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
@@ -152,15 +160,19 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - Protocol documentation: [syrlex2mqtt](https://github.com/Richard-Schaller/syrlex2mqtt) by Richard Schaller
 - Inspired by the [ioBroker.syrconnect](https://github.com/eifel-tech/ioBroker.syrconnect) project
 
-## Support
+## Troubleshooting & Support
 
-If you encounter issues or have questions:
+**Common Issues**:
+- **Entities not appearing**: Check DNS overrides are set correctly and device is connected to the network
+- **HTTPS connection fails**: Verify certificates are in `/config` and device firmware supports HTTPS
+- **Commands not updating**: Wait for the device's next poll cycle (default: every 5 minutes)
 
-1. Check the [Troubleshooting](#troubleshooting) section
-2. Search [existing issues](https://github.com/Rednox/syr-local-connect/issues)
+**Getting Help**:
+1. Enable debug logging in HA: `logger` integration with `syr_connect_local` set to DEBUG
+2. Check [existing issues](https://github.com/Rednox/syr-local-connect/issues)
 3. Create a [new issue](https://github.com/Rednox/syr-local-connect/issues/new) with:
    - Home Assistant version
    - Integration version
    - Device model and firmware version
-   - Relevant log entries
+   - Relevant debug log entries
    - Description of the problem
