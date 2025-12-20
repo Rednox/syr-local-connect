@@ -29,6 +29,7 @@ _LOGGER = logging.getLogger(__name__)
 # Weekday encoding: Each bit represents a day (bit 0 = Monday, bit 6 = Sunday)
 # The protocol uses a string representation of a number where each bit is a day
 WEEKDAY_OPTIONS = {
+    "No Days": "0",  # 0000000
     "Every Day": "127",  # 1111111
     "Weekdays (Mon-Fri)": "31",  # 0011111
     "Weekends (Sat-Sun)": "96",  # 1100000
