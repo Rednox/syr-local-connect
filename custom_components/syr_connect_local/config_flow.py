@@ -121,12 +121,30 @@ class SyrConnectLocalOptionsFlow(config_entries.OptionsFlow):
                 errors["base"] = "unknown"
 
         # Get current values
-        current_http = self._config_entry.data.get(CONF_HTTP_PORT, DEFAULT_HTTP_PORT)
-        current_https = self._config_entry.data.get(CONF_HTTPS_PORT, DEFAULT_HTTPS_PORT)
-        current_cert = self._config_entry.data.get(CONF_CERT_FILE, "/config/syr_cert.pem")
-        current_key = self._config_entry.data.get(CONF_KEY_FILE, "/config/syr_key.pem")
-        current_use_https = self._config_entry.data.get(CONF_USE_HTTPS, False)
-        current_debug = self._config_entry.data.get(CONF_DEBUG_ENDPOINTS, False)
+        current_http = self._config_entry.options.get(
+            CONF_HTTP_PORT,
+            self._config_entry.data.get(CONF_HTTP_PORT, DEFAULT_HTTP_PORT),
+        )
+        current_https = self._config_entry.options.get(
+            CONF_HTTPS_PORT,
+            self._config_entry.data.get(CONF_HTTPS_PORT, DEFAULT_HTTPS_PORT),
+        )
+        current_cert = self._config_entry.options.get(
+            CONF_CERT_FILE,
+            self._config_entry.data.get(CONF_CERT_FILE, "/config/syr_cert.pem"),
+        )
+        current_key = self._config_entry.options.get(
+            CONF_KEY_FILE,
+            self._config_entry.data.get(CONF_KEY_FILE, "/config/syr_key.pem"),
+        )
+        current_use_https = self._config_entry.options.get(
+            CONF_USE_HTTPS,
+            self._config_entry.data.get(CONF_USE_HTTPS, False),
+        )
+        current_debug = self._config_entry.options.get(
+            CONF_DEBUG_ENDPOINTS,
+            self._config_entry.data.get(CONF_DEBUG_ENDPOINTS, False),
+        )
 
         return self.async_show_form(
             step_id="init",

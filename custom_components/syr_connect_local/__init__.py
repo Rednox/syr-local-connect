@@ -48,11 +48,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.info("Setting up SYR Connect Local integration")
 
     # Get configuration
-    http_port = entry.data.get(CONF_HTTP_PORT, DEFAULT_HTTP_PORT)
-    https_port = entry.data.get(CONF_HTTPS_PORT, DEFAULT_HTTPS_PORT)
-    use_https = entry.data.get(CONF_USE_HTTPS, False)
-    cert_file = entry.data.get(CONF_CERT_FILE)
-    key_file = entry.data.get(CONF_KEY_FILE)
+    http_port = entry.options.get(
+        CONF_HTTP_PORT, entry.data.get(CONF_HTTP_PORT, DEFAULT_HTTP_PORT)
+    )
+    https_port = entry.options.get(
+        CONF_HTTPS_PORT, entry.data.get(CONF_HTTPS_PORT, DEFAULT_HTTPS_PORT)
+    )
+    use_https = entry.options.get(
+        CONF_USE_HTTPS, entry.data.get(CONF_USE_HTTPS, False)
+    )
+    cert_file = entry.options.get(CONF_CERT_FILE, entry.data.get(CONF_CERT_FILE))
+    key_file = entry.options.get(CONF_KEY_FILE, entry.data.get(CONF_KEY_FILE))
     debug_endpoints = entry.options.get(
         CONF_DEBUG_ENDPOINTS, entry.data.get(CONF_DEBUG_ENDPOINTS, False)
     )
@@ -223,8 +229,7 @@ async def _async_resolve_or_create_certs(
 
     Preference order:
     1) User-provided paths if both exist
-    2) Supervisor/OS Let's Encrypt addon paths in /ssl if present
-    3) Generate self-signed certs in /config with SYR domains
+    2) Generate self-signed certs in /config with SYR domains
     """
     try:
         # 1) If user provided and both exist, use them
@@ -232,20 +237,7 @@ async def _async_resolve_or_create_certs(
             _LOGGER.info("Using provided HTTPS cert/key (cert=%s, key=%s)", cert_file, key_file)
             return cert_file, key_file
 
-        # 2) Try Let's Encrypt addon default paths on HA OS/Supervised
-        le_cert = Path("/ssl/fullchain.pem")
-        le_key = Path("/ssl/privkey.pem")
-        if le_cert.exists() and le_key.exists():
-            _LOGGER.info("Detected Let's Encrypt certificates in /ssl; using them")
-            _LOGGER.warning(
-                (
-                    "Note: Device hostname must match the cert's domain. "
-                    "If devices expect syrconnect.de, a self-signed cert with that CN may be needed."
-                )
-            )
-            return str(le_cert), str(le_key)
-
-        # 3) Generate self-signed certs with expected SYR hostnames
+        # 2) Generate self-signed certs with expected SYR hostnames
         target_cert = Path(cert_file or "/config/syr_cert.pem")
         target_key = Path(key_file or "/config/syr_key.pem")
         created = await _async_generate_self_signed_cert(target_cert, target_key)
