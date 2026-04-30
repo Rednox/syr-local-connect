@@ -24,6 +24,7 @@ from .const import (
     DEFAULT_HTTPS_PORT,
     DEFAULT_HTTP_PORT,
     DOMAIN,
+    HANDLED_DOMAINS,
     SIGNAL_NEW_DEVICE,
 )
 from .coordinator import SyrConnectLocalCoordinator
@@ -58,15 +59,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Provide sensible defaults for HTTPS cert/key if enabled but not set
     if use_https:
-        if not cert_file:
-            cert_file = "/config/syr_cert.pem"
-        if not key_file:
-            key_file = "/config/syr_key.pem"
-        if not Path(cert_file).exists() or not Path(key_file).exists():
+        cert_file, key_file = await _async_resolve_or_create_certs(hass, cert_file, key_file)
+        if not cert_file or not key_file:
             _LOGGER.warning(
-                "HTTPS disabled: cert/key not found (cert=%s, key=%s)",
-                cert_file,
-                key_file,
+                "HTTPS disabled: could not resolve or create certificates"
             )
             use_https = False
 
@@ -216,3 +212,135 @@ async def _async_setup_services(
             }
         ),
     )
+
+
+async def _async_resolve_or_create_certs(
+    hass: HomeAssistant,
+    cert_file: str | None,
+    key_file: str | None,
+) -> tuple[str | None, str | None]:
+    """Resolve certificate paths or create self-signed if missing.
+
+    Preference order:
+    1) User-provided paths if both exist
+    2) Supervisor/OS Let's Encrypt addon paths in /ssl if present
+    3) Generate self-signed certs in /config with SYR domains
+    """
+    try:
+        # 1) If user provided and both exist, use them
+        if cert_file and key_file and Path(cert_file).exists() and Path(key_file).exists():
+            _LOGGER.info("Using provided HTTPS cert/key (cert=%s, key=%s)", cert_file, key_file)
+            return cert_file, key_file
+
+        # 2) Try Let's Encrypt addon default paths on HA OS/Supervised
+        le_cert = Path("/ssl/fullchain.pem")
+        le_key = Path("/ssl/privkey.pem")
+        if le_cert.exists() and le_key.exists():
+            _LOGGER.info("Detected Let's Encrypt certificates in /ssl; using them")
+            _LOGGER.warning(
+                (
+                    "Note: Device hostname must match the cert's domain. "
+                    "If devices expect syrconnect.de, a self-signed cert with that CN may be needed."
+                )
+            )
+            return str(le_cert), str(le_key)
+
+        # 3) Generate self-signed certs with expected SYR hostnames
+        target_cert = Path(cert_file or "/config/syr_cert.pem")
+        target_key = Path(key_file or "/config/syr_key.pem")
+        created = await _async_generate_self_signed_cert(target_cert, target_key)
+        if created:
+            _LOGGER.info("Generated self-signed SYR HTTPS cert at %s", target_cert)
+            return str(target_cert), str(target_key)
+        else:
+            _LOGGER.error("Failed to generate self-signed certificates")
+            return None, None
+    except Exception as err:
+        _LOGGER.error("Error resolving/creating certificates: %s", err, exc_info=True)
+        return None, None
+
+
+async def _async_generate_self_signed_cert(cert_path: Path, key_path: Path) -> bool:
+    """Generate a self-signed RSA certificate for the SYR domains."""
+    try:
+        # Import cryptography lazily to avoid import cost if not needed
+        from cryptography import x509
+        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives.asymmetric import rsa
+        from cryptography.x509.oid import NameOID, ExtendedKeyUsageOID
+        import datetime as dt
+
+        # Ensure parent directory exists
+        cert_path.parent.mkdir(parents=True, exist_ok=True)
+        key_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Generate RSA private key
+        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+
+        # Build subject/issuer (self-signed)
+        subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, HANDLED_DOMAINS[0])])
+        issuer = subject
+
+        # Subject Alternative Names for handled domains
+        san = x509.SubjectAlternativeName([x509.DNSName(d) for d in HANDLED_DOMAINS])
+
+        # Validity window
+        not_before = dt.datetime.utcnow() - dt.timedelta(days=1)
+        not_after = dt.datetime.utcnow() + dt.timedelta(days=365 * 3)
+
+        # Serial number
+        serial_number = x509.random_serial_number()
+
+        builder = (
+            x509.CertificateBuilder()
+            .subject_name(subject)
+            .issuer_name(issuer)
+            .public_key(key.public_key())
+            .serial_number(serial_number)
+            .not_valid_before(not_before)
+            .not_valid_after(not_after)
+            .add_extension(san, critical=False)
+            .add_extension(
+                x509.BasicConstraints(ca=False, path_length=None),
+                critical=True,
+            )
+            .add_extension(
+                x509.KeyUsage(
+                    digital_signature=True,
+                    content_commitment=False,
+                    key_encipherment=True,
+                    data_encipherment=False,
+                    key_agreement=False,
+                    key_cert_sign=False,
+                    crl_sign=False,
+                    encipher_only=False,
+                    decipher_only=False,
+                ),
+                critical=True,
+            )
+            .add_extension(
+                x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH]),
+                critical=False,
+            )
+        )
+
+        cert = builder.sign(private_key=key, algorithm=hashes.SHA256())
+
+        # Write private key (PEM)
+        with key_path.open("wb") as f:
+            f.write(
+                key.private_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PrivateFormat.TraditionalOpenSSL,
+                    encryption_algorithm=serialization.NoEncryption(),
+                )
+            )
+
+        # Write certificate (PEM)
+        with cert_path.open("wb") as f:
+            f.write(cert.public_bytes(serialization.Encoding.PEM))
+
+        return True
+    except Exception as err:
+        _LOGGER.error("Failed generating self-signed cert: %s", err, exc_info=True)
+        return False
