@@ -37,6 +37,63 @@ Ports (from [docker-compose.yml](docker-compose.yml)):
 - 80   → SYR Connect Local HTTP (firmware ≈ 1.7)
 - 443  → SYR Connect Local HTTPS (firmware ≈ 1.9+)
 
+### use colima
+
+```bash
+brew install colima docker docker-compose
+colima start --cpu 4 --memory 6 --disk 40
+docker context use colima
+docker info
+docker compose -f docker-compose.colima.yml up -d
+docker logs -f home-assistant
+
+docker compose -f docker-compose.colima.yml down
+```
+
+### Run tests manually (pytest)
+
+Create an isolated Python environment in the repo root and install test dependencies:
+
+```bash
+# From repo root
+/opt/homebrew/bin/python3.13 -m venv .venv
+.venv/bin/python -m pip install -U pip
+.venv/bin/python -m pip install pytest pytest-asyncio pytest-aiohttp aiohttp
+```
+
+Run all tests:
+
+```bash
+.venv/bin/python -m pytest -q
+```
+
+Run only in-process/local server tests:
+
+```bash
+.venv/bin/python -m pytest -q tests/test_server_local.py
+```
+
+Run black-box tests against a running HA container:
+
+```bash
+# Requires the container/server to be up and reachable on localhost:80/443
+RUN_BLACKBOX=1 .venv/bin/python -m pytest -q tests/test_server_blackbox.py
+```
+
+Optional black-box overrides:
+
+```bash
+RUN_BLACKBOX=1 \
+SYR_TEST_HOST=192.168.1.10 \
+SYR_TEST_HTTP_PORT=80 \
+SYR_TEST_HTTPS_PORT=443 \
+.venv/bin/python -m pytest -q tests/test_server_blackbox.py
+```
+
+Notes:
+- Do not use `pipx` for these test libraries; use the project `.venv`.
+- If you run `pytest` from the wrong path, use `tests/test_server_blackbox.py` (not `test_server_blackbox.py`).
+
 ## Add the Integration in HA
 
 1. Open HA → Settings → Devices & Services → Add Integration → “SYR Connect Local”.

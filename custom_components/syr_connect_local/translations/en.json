@@ -8,6 +8,7 @@
           "http_port": "HTTP Port",
           "https_port": "HTTPS Port",
           "use_https": "Enable HTTPS",
+          "legacy_tls_compat": "Enable legacy TLS compatibility (less secure)",
           "debug_endpoints": "Enable Debug Endpoints"
         }
       }
@@ -31,6 +32,7 @@
           "http_port": "HTTP Port",
           "https_port": "HTTPS Port",
           "use_https": "Enable HTTPS",
+          "legacy_tls_compat": "Enable legacy TLS compatibility (less secure)",
           "debug_endpoints": "Enable Debug Endpoints"
         }
       }

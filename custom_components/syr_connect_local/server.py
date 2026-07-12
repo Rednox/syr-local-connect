@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import ssl
+import time
 from typing import Any, Callable
 
 from aiohttp import web
@@ -17,11 +18,55 @@ from .const import (
     ENDPOINT_BASIC_ALT,
     EXTENDED_PROPERTIES,
     LEAKAGE_PROPERTIES,
+    PROPERTY_CODE,
+    PROPERTY_MAC,
     PROPERTY_SERIAL,
 )
 from .protocol import SyrProtocol
 
 _LOGGER = logging.getLogger(__name__)
+
+
+@web.middleware
+async def _request_debug_middleware(
+    request: web.Request,
+    handler: Callable[[web.Request], Any],
+) -> web.StreamResponse:
+    """Log every incoming request to this plugin server."""
+    started = time.perf_counter()
+    _LOGGER.debug(
+        "Incoming request: method=%s scheme=%s host=%s path=%s client=%s",
+        request.method,
+        request.scheme,
+        request.host,
+        request.path_qs,
+        request.remote,
+    )
+
+    try:
+        response = await handler(request)
+    except Exception as err:
+        elapsed_ms = (time.perf_counter() - started) * 1000.0
+        _LOGGER.debug(
+            "Request failed: method=%s path=%s client=%s error=%s duration_ms=%.2f",
+            request.method,
+            request.path_qs,
+            request.remote,
+            err,
+            elapsed_ms,
+        )
+        raise
+
+    elapsed_ms = (time.perf_counter() - started) * 1000.0
+    _LOGGER.debug(
+        "Request completed: method=%s path=%s client=%s status=%s duration_ms=%.2f",
+        request.method,
+        request.path_qs,
+        request.remote,
+        response.status,
+        elapsed_ms,
+    )
+    return response
 
 
 class DeviceState:
@@ -34,9 +79,63 @@ class DeviceState:
         self.pending_commands: dict[str, str] = {}
         self.last_seen: float = 0
         self.is_identified = False
+        self.auth_token: str | None = None
+        self.source_ip: str | None = None
+
+    def bootstrap_auth(self, properties: dict[str, str], source_ip: str | None) -> None:
+        """Capture trust anchors from the first successful device update."""
+        token = properties.get(PROPERTY_CODE)
+        if token:
+            self.auth_token = token
+
+        if source_ip:
+            self.source_ip = source_ip
+
+    def is_authenticated(self, properties: dict[str, str], source_ip: str | None) -> bool:
+        """Validate that a request matches this known device identity."""
+        request_token = properties.get(PROPERTY_CODE)
+
+        if self.auth_token:
+            if not request_token:
+                _LOGGER.warning(
+                    "Rejecting request for %s: missing device token",
+                    self.serial_number,
+                )
+                return False
+            if request_token != self.auth_token:
+                _LOGGER.warning(
+                    "Rejecting request for %s: invalid device token",
+                    self.serial_number,
+                )
+                return False
+
+        if self.source_ip and source_ip and self.source_ip != source_ip:
+            _LOGGER.warning(
+                "Rejecting request for %s: source IP changed (%s -> %s)",
+                self.serial_number,
+                self.source_ip,
+                source_ip,
+            )
+            return False
+
+        known_mac = self.properties.get(PROPERTY_MAC)
+        request_mac = properties.get(PROPERTY_MAC)
+        if known_mac and request_mac and known_mac != request_mac:
+            _LOGGER.warning(
+                "Rejecting request for %s: MAC mismatch",
+                self.serial_number,
+            )
+            return False
+
+        return True
 
     def update_properties(self, properties: dict[str, str]) -> None:
         """Update device properties from received data."""
+        if not self.auth_token:
+            token = properties.get(PROPERTY_CODE)
+            if token:
+                self.auth_token = token
+
         self.properties.update(properties)
 
     def queue_command(self, command: str, value: str) -> None:
@@ -77,6 +176,7 @@ class SyrConnectServer:
         cert_file: str | None = None,
         key_file: str | None = None,
         enable_debug_endpoints: bool = False,
+        legacy_tls_compat: bool = False,
     ):
         """Initialize the server."""
         self.http_port = http_port
@@ -84,10 +184,11 @@ class SyrConnectServer:
         self.use_https = use_https
         self.cert_file = cert_file
         self.key_file = key_file
+        self.legacy_tls_compat = legacy_tls_compat
 
         self.devices: dict[str, DeviceState] = {}
         self.protocol = SyrProtocol()
-        self.app = web.Application()
+        self.app = web.Application(middlewares=[_request_debug_middleware])
         self.runner: web.AppRunner | None = None
         self.sites: list[web.TCPSite] = []
         self.enable_debug_endpoints = enable_debug_endpoints
@@ -201,8 +302,11 @@ class SyrConnectServer:
                 _LOGGER.info("New device discovered: %s", serial)
                 device = DeviceState(serial)
                 self.devices[serial] = device
+                device.bootstrap_auth(properties, client_ip)
             else:
                 device = self.devices[serial]
+                if not device.is_authenticated(properties, client_ip):
+                    return web.Response(status=403, text="forbidden")
 
             # Update device properties
             device.update_properties(properties)
@@ -426,14 +530,45 @@ class SyrConnectServer:
         """Create SSL context (runs in thread pool executor)."""
         ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         ssl_context.load_cert_chain(self.cert_file, self.key_file)
-        
-        # Allow older TLS versions and weaker ciphers for compatibility with legacy SYR devices
-        # SYR devices may use TLS 1.0/1.1 with older cipher suites
-        ssl_context.minimum_version = ssl.TLSVersion.TLSv1
-        ssl_context.set_ciphers("DEFAULT:@SECLEVEL=0")
-        
-        _LOGGER.debug("SSL context created with TLS 1.0+ support and relaxed cipher policy")
+        self._apply_tls_policy(ssl_context, legacy_compat=self.legacy_tls_compat)
+
         return ssl_context
+
+    @staticmethod
+    def _apply_tls_policy(ssl_context: ssl.SSLContext, legacy_compat: bool) -> None:
+        """Apply TLS policy.
+
+        Policy goals:
+        - Default: modern TLS (prefer TLS 1.3, allow TLS 1.2 fallback).
+        - Optional legacy mode: broaden compatibility for old device firmware.
+        """
+        if legacy_compat:
+            ssl_context.minimum_version = ssl.TLSVersion.TLSv1
+            # Keep compatibility with older TLS stacks that require OpenSSL security
+            # level 0. This is intentionally opt-in and should be used only when needed.
+            try:
+                ssl_context.set_ciphers("DEFAULT:@SECLEVEL=0")
+            except ssl.SSLError as err:
+                _LOGGER.warning("Could not apply legacy cipher profile: %s", err)
+
+            _LOGGER.warning(
+                "Legacy TLS compatibility mode enabled: allows TLS 1.0+ and weaker ciphers"
+            )
+            return
+
+        ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
+
+        max_tls = getattr(ssl.TLSVersion, "TLSv1_3", None)
+        if max_tls is not None:
+            ssl_context.maximum_version = max_tls
+
+        ssl_context.options |= ssl.OP_NO_COMPRESSION
+
+        _LOGGER.debug(
+            "SSL context created with modern policy: min=%s, max=%s, default ciphers",
+            ssl_context.minimum_version.name,
+            ssl_context.maximum_version.name if ssl_context.maximum_version else "system-default",
+        )
 
     async def stop(self) -> None:
         """Stop the server."""

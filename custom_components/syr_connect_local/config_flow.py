@@ -17,6 +17,7 @@ from .const import (
     CONF_KEY_FILE,
     CONF_USE_HTTPS,
     CONF_DEBUG_ENDPOINTS,
+    CONF_LEGACY_TLS_COMPAT,
     DEFAULT_HTTPS_PORT,
     DEFAULT_HTTP_PORT,
     DOMAIN,
@@ -75,6 +76,7 @@ class SyrConnectLocalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Optional(CONF_CERT_FILE, default="/config/syr_cert.pem"): vol.Coerce(str),
                     vol.Optional(CONF_KEY_FILE, default="/config/syr_key.pem"): vol.Coerce(str),
                     vol.Optional(CONF_USE_HTTPS, default=False): bool,
+                    vol.Optional(CONF_LEGACY_TLS_COMPAT, default=False): bool,
                     vol.Optional(CONF_DEBUG_ENDPOINTS, default=False): bool,
                 }
             ),
@@ -145,6 +147,10 @@ class SyrConnectLocalOptionsFlow(config_entries.OptionsFlow):
             CONF_DEBUG_ENDPOINTS,
             self._config_entry.data.get(CONF_DEBUG_ENDPOINTS, False),
         )
+        current_legacy_tls = self._config_entry.options.get(
+            CONF_LEGACY_TLS_COMPAT,
+            self._config_entry.data.get(CONF_LEGACY_TLS_COMPAT, False),
+        )
 
         return self.async_show_form(
             step_id="init",
@@ -157,6 +163,7 @@ class SyrConnectLocalOptionsFlow(config_entries.OptionsFlow):
                     vol.Optional(CONF_CERT_FILE, default=current_cert): vol.Coerce(str),
                     vol.Optional(CONF_KEY_FILE, default=current_key): vol.Coerce(str),
                     vol.Optional(CONF_USE_HTTPS, default=current_use_https): bool,
+                    vol.Optional(CONF_LEGACY_TLS_COMPAT, default=current_legacy_tls): bool,
                     vol.Optional(CONF_DEBUG_ENDPOINTS, default=current_debug): bool,
                 }
             ),

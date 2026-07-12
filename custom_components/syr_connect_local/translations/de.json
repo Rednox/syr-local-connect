@@ -8,6 +8,7 @@
           "http_port": "HTTP Port",
           "https_port": "HTTPS Port",
           "use_https": "HTTPS aktivieren",
+          "legacy_tls_compat": "Legacy-TLS-Kompatibilitaet aktivieren (weniger sicher)",
           "debug_endpoints": "Debug-Endpunkte aktivieren"
         }
       }
@@ -31,6 +32,7 @@
           "http_port": "HTTP Port",
           "https_port": "HTTPS Port",
           "use_https": "HTTPS aktivieren",
+          "legacy_tls_compat": "Legacy-TLS-Kompatibilitaet aktivieren (weniger sicher)",
           "debug_endpoints": "Debug-Endpunkte aktivieren"
         }
       }

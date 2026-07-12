@@ -7,7 +7,6 @@ services:
       - ./homeassistant/config:/config
       - ./custom_components:/config/custom_components
       - /etc/localtime:/etc/localtime:ro
-      - /run/dbus:/run/dbus:ro
     environment:
       - TZ=Europe/Berlin
     ports:
