@@ -19,7 +19,7 @@ from .const import (
     CONF_KEY_FILE,
     CONF_USE_HTTPS,
     CONF_DEBUG_ENDPOINTS,
-    CONF_LEGACY_TLS_COMPAT,
+    CONF_LEGACY_TLS_ALLOWED_TUPLES,
     DATA_COORDINATOR,
     DATA_SERVER,
     DEFAULT_HTTPS_PORT,
@@ -63,8 +63,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     debug_endpoints = entry.options.get(
         CONF_DEBUG_ENDPOINTS, entry.data.get(CONF_DEBUG_ENDPOINTS, False)
     )
-    legacy_tls_compat = entry.options.get(
-        CONF_LEGACY_TLS_COMPAT, entry.data.get(CONF_LEGACY_TLS_COMPAT, False)
+    legacy_tls_allowed_tuples = entry.options.get(
+        CONF_LEGACY_TLS_ALLOWED_TUPLES,
+        entry.data.get(CONF_LEGACY_TLS_ALLOWED_TUPLES, []),
     )
 
     # Provide sensible defaults for HTTPS cert/key if enabled but not set
@@ -84,7 +85,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         cert_file=cert_file,
         key_file=key_file,
         enable_debug_endpoints=debug_endpoints,
-        legacy_tls_compat=legacy_tls_compat,
+        legacy_tls_allowed_tuples=legacy_tls_allowed_tuples,
     )
 
     # Set up device discovery callback
@@ -134,6 +135,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Register services
     await _async_setup_services(hass, coordinator)
 
+    # Reload the integration when options change so server TLS policy updates
+    entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+
     _LOGGER.info("SYR Connect Local integration setup complete")
     return True
 
@@ -152,6 +156,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await server.stop()
 
     return unload_ok
+
+
+async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload the integration when config entry options change."""
+    _LOGGER.info("Config entry updated for %s; reloading integration", entry.entry_id)
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def _async_setup_services(

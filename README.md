@@ -4,7 +4,7 @@ Local SYR endpoints so your device can talk to Home Assistant without the cloud.
 
 ## For HACS Users (what you really need)
 
-- **DNS override required:** point these hostnames to your HA host IP: `syrconnect.de`, `syrconnect.consoft.de`, `connect.saocal.pl`, `maintenance.syrconnect.de`.
+- **DNS override required:** point these hostnames to your HA host IP: `syrconnect.de (212.77.236.30)`, `iot3.syrconnect.de`.
 - **HTTPS certificates:** only needed if your device firmware uses HTTPS (≈1.9+). Place in `/config`:
   - `syr_cert.pem`
   - `syr_key.pem`
@@ -36,6 +36,38 @@ Ports (from [docker-compose.yml](docker-compose.yml)):
 - 8123 → Home Assistant UI
 - 80   → SYR Connect Local HTTP (firmware ≈ 1.7)
 - 443  → SYR Connect Local HTTPS (firmware ≈ 1.9+)
+
+### Preserving the real client IP
+
+Docker's default bridge networking rewrites the source IP of incoming
+connections to the Docker gateway (e.g. `172.18.0.1`). This makes the legacy
+TLS allowlist and device source-IP checks see the gateway IP instead of the
+real device IP (`192.168.x.x`).
+
+Options to preserve the real client IP:
+
+1. **Host networking (recommended for Linux / Colima)**  
+   Use [docker-compose.host-network.yml](docker-compose.host-network.yml) so
+   the container shares the host network stack and sees the original source IPs
+   directly:
+   ```bash
+   docker compose -f docker-compose.host-network.yml up -d
+   ```
+   On macOS with Colima you may need to enable LAN-reachable addresses:
+   ```bash
+   colima stop
+   colima start --network-address
+   ```
+
+2. **Reverse proxy with `X-Forwarded-For`**  
+   Put a proxy on the host network in front of the container and have it add
+   `X-Forwarded-For: <real-client-ip>`. The integration prefers this header over
+   the transport peer address.
+
+3. **MAC-based allowlist (works with bridge networking)**  
+   Even if the IP shown is the Docker gateway, the integration falls back to
+   matching the allowlist by the device's MAC address, so adding the discovered
+   `172.18.0.1|<mac>` tuple still works.
 
 ### use colima
 
@@ -223,6 +255,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - **Entities not appearing**: Check DNS overrides are set correctly and device is connected to the network
 - **HTTPS connection fails**: Verify certificates are in `/config` and device firmware supports HTTPS
 - **Commands not updating**: Wait for the device's next poll cycle (default: every 5 minutes)
+- **Device IP shows as a Docker gateway (e.g. 172.18.0.1)**: This is expected with Docker bridge networking. Use host networking (see [Preserving the real client IP](#preserving-the-real-client-ip)), a reverse proxy with `X-Forwarded-For`, or rely on the MAC-based allowlist fallback.
 
 **Getting Help**:
 1. Enable debug logging in HA: `logger` integration with `syr_connect_local` set to DEBUG
@@ -233,3 +266,11 @@ This project is licensed under the MIT License - see the LICENSE file for detail
    - Device model and firmware version
    - Relevant debug log entries
    - Description of the problem
+
+
+## Nice to Know
+
+- In the SYR Lex Plus firmware 2.4 they changed the cloud push mechanism domain to iot3.syrconnect.de
+- ClientHello still uses TLSv1 for SYR Lex Plus firmware 2.4
+- Further Syr Endpoint but not required here: `connect.saocal.pl`, `maintenance.syrconnect.de (67.207.73.145)` , `firmware.syrconnect.de (207.154.224.234)`
+- SYR Lex Plus firmware 2.4 pushes data every 10 seconds

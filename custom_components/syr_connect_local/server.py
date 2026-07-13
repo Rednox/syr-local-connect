@@ -26,7 +26,6 @@ from .protocol import SyrProtocol
 
 _LOGGER = logging.getLogger(__name__)
 
-
 @web.middleware
 async def _request_debug_middleware(
     request: web.Request,
@@ -176,7 +175,7 @@ class SyrConnectServer:
         cert_file: str | None = None,
         key_file: str | None = None,
         enable_debug_endpoints: bool = False,
-        legacy_tls_compat: bool = False,
+        legacy_tls_allowed_tuples: list[str] | None = None,
     ):
         """Initialize the server."""
         self.http_port = http_port
@@ -184,7 +183,14 @@ class SyrConnectServer:
         self.use_https = use_https
         self.cert_file = cert_file
         self.key_file = key_file
-        self.legacy_tls_compat = legacy_tls_compat
+        self.legacy_tls_allowed_tuples: set[str] = {
+            tuple_key.strip().lower()
+            for tuple_key in (legacy_tls_allowed_tuples or [])
+            if tuple_key and tuple_key.strip()
+        }
+        self.legacy_tls_discovered_tuples: set[str] = set()
+        self.tls_tuple_max_version: dict[str, str] = {}
+        self.legacy_tls_bootstrapped_tuples: set[str] = set()
 
         self.devices: dict[str, DeviceState] = {}
         self.protocol = SyrProtocol()
@@ -216,11 +222,201 @@ class SyrConnectServer:
             self.app.router.add_get("/echo", self.handle_echo)
             self.app.router.add_post("/echo", self.handle_echo)
 
+    @staticmethod
+    def _get_tls_version(request: web.Request) -> str | None:
+        """Return TLS version string for HTTPS requests, if available."""
+        transport = request.transport
+        if not transport:
+            return None
+        ssl_obj = transport.get_extra_info("ssl_object")
+        if not ssl_obj:
+            return None
+        version = ssl_obj.version()
+        return version.upper() if version else None
+
+    @staticmethod
+    def _format_legacy_tuple(source_ip: str | None, mac: str | None) -> str | None:
+        """Normalize tuple key format used in options and allowlist."""
+        normalized_ip = (source_ip or "unknown-ip").strip().lower() or "unknown-ip"
+        normalized_mac = (mac or "unknown").strip().lower() or "unknown"
+        return f"{normalized_ip}|{normalized_mac}"
+
+    @staticmethod
+    def _get_source_ip(request: web.Request) -> str | None:
+        """Best-effort source IP extraction for direct and proxied setups.
+
+        In Docker or reverse-proxy environments the transport peer address is
+        the gateway/proxy (e.g. 172.18.0.1), not the real client. Prefer the
+        X-Forwarded-For header when present so the legacy TLS allowlist and
+        device authentication use the original device IP.
+        """
+        xff = request.headers.get("X-Forwarded-For")
+        if xff:
+            return xff.split(",", 1)[0].strip() or None
+
+        if request.remote:
+            return request.remote
+
+        transport = request.transport
+        if transport:
+            peername = transport.get_extra_info("peername")
+            if isinstance(peername, tuple) and peername:
+                return str(peername[0])
+
+        return None
+
+    def _discover_legacy_tuple(self, source_ip: str | None, mac: str | None) -> str | None:
+        """Store discovered legacy TLS source tuple."""
+        tuple_key = self._format_legacy_tuple(source_ip, mac)
+        if tuple_key:
+            self.legacy_tls_discovered_tuples.add(tuple_key)
+        return tuple_key
+
+    def get_legacy_tls_discovered_tuples(self) -> list[str]:
+        """Return discovered TLSv1 tuples for options UI."""
+        return sorted(self.legacy_tls_discovered_tuples)
+
+    def _is_legacy_tuple_allowed(self, source_ip: str | None, mac: str | None) -> bool:
+        """Check whether a discovered legacy TLS tuple is allowlisted.
+
+        Supports both exact IP|MAC matches and MAC-only matches. The latter is
+        needed when the request IP is a Docker gateway/proxy (e.g. 172.18.0.1)
+        rather than the real client IP.
+        """
+        tuple_key = self._format_legacy_tuple(source_ip, mac)
+        if not tuple_key:
+            return False
+
+        # If MAC is unknown (e.g. basic endpoint), allow by source IP when any
+        # explicit IP|MAC tuple exists for this source.
+        if tuple_key.endswith("|unknown"):
+            normalized_ip = (source_ip or "unknown-ip").strip().lower() or "unknown-ip"
+            ip_prefix = f"{normalized_ip}|"
+            return any(item.startswith(ip_prefix) for item in self.legacy_tls_allowed_tuples)
+
+        if tuple_key in self.legacy_tls_allowed_tuples:
+            return True
+
+        # Fallback: match by MAC only when the IP is unreliable (Docker NAT,
+        # reverse proxy without X-Forwarded-For, etc.).
+        if mac:
+            normalized_mac = mac.strip().lower()
+            mac_suffix = f"|{normalized_mac}"
+            return any(item.endswith(mac_suffix) for item in self.legacy_tls_allowed_tuples)
+
+        return False
+
+    def _extract_mac_from_xml(self, xml_data: str) -> str | None:
+        """Best-effort extraction of MAC from SYR XML payload."""
+        if not xml_data:
+            return None
+        properties = self.protocol.parse_xml(xml_data)
+        return properties.get(PROPERTY_MAC)
+
+    @staticmethod
+    def _tls_version_rank(tls_version: str | None) -> int:
+        """Return a comparable rank for TLS/SSL protocol versions."""
+        if not tls_version:
+            return -1
+
+        version_ranks = {
+            "SSLV2": 0,
+            "SSLV3": 1,
+            "TLSV1": 10,
+            "TLSV1.1": 11,
+            "TLSV1.2": 12,
+            "TLSV1.3": 13,
+        }
+        return version_ranks.get(tls_version.upper(), -1)
+
+    def _remember_tls_version_for_tuple(
+        self, tuple_key: str | None, tls_version: str | None
+    ) -> None:
+        """Store strongest observed TLS version per tuple."""
+        if not tuple_key or not tls_version:
+            return
+
+        current = self.tls_tuple_max_version.get(tuple_key)
+        if self._tls_version_rank(tls_version) > self._tls_version_rank(current):
+            self.tls_tuple_max_version[tuple_key] = tls_version
+
+    def _is_tls12_or_newer(self, tls_version: str | None) -> bool:
+        """Return true when negotiated TLS is 1.2 or newer."""
+        return self._tls_version_rank(tls_version) >= self._tls_version_rank("TLSV1.2")
+
+    def _is_legacy_tuple_approved(
+        self,
+        source_ip: str | None,
+        mac: str | None,
+        tls_version: str | None,
+    ) -> bool:
+        """Return whether a legacy tuple may create or update a device entry."""
+        if tls_version is None:
+            return True
+
+        if self._is_tls12_or_newer(tls_version):
+            return True
+
+        return self._is_legacy_tuple_allowed(source_ip, mac)
+
+    def _should_block_legacy_tls(
+        self,
+        source_ip: str | None,
+        mac: str | None,
+        path: str,
+        tls_version: str | None,
+    ) -> bool:
+        """Determine whether a sub-TLS1.2 request should be blocked."""
+        tuple_key = self._discover_legacy_tuple(source_ip, mac)
+        self._remember_tls_version_for_tuple(tuple_key, tls_version)
+
+        if self._is_tls12_or_newer(tls_version):
+            _LOGGER.debug(
+                "Modern TLS tuple accepted without allowlist enrollment: tuple=%s tls=%s path=%s",
+                tuple_key,
+                tls_version,
+                path,
+            )
+            return False
+
+        # Allow one bootstrap round for insecure tuples so discovery can complete.
+        if tuple_key and tuple_key not in self.legacy_tls_bootstrapped_tuples:
+            self.legacy_tls_bootstrapped_tuples.add(tuple_key)
+            _LOGGER.debug(
+                "Legacy TLS bootstrap accepted once: tuple=%s tls=%s path=%s",
+                tuple_key,
+                tls_version,
+                path,
+            )
+            return False
+
+        if not self._is_legacy_tuple_allowed(source_ip, mac):
+            _LOGGER.warning(
+                "Blocked legacy TLS request (not allowlisted): tuple=%s tls=%s path=%s",
+                tuple_key,
+                tls_version,
+                path,
+            )
+            return True
+
+        return False
+
     async def handle_basic_commands(self, request: web.Request) -> web.Response:
         """Handle GetBasicCommands endpoint."""
         try:
+            tls_version = self._get_tls_version(request)
+            source_ip = self._get_source_ip(request)
+            if tls_version is not None:
+                if self._should_block_legacy_tls(
+                    source_ip,
+                    None,
+                    request.path,
+                    tls_version,
+                ):
+                    return web.Response(status=403, text="legacy_tls_tuple_not_allowed")
+
             # Log detailed request information
-            client_ip = request.remote
+            client_ip = source_ip
             scheme = request.scheme  # 'http' or 'https'
             host = request.host
             _LOGGER.debug(
@@ -250,8 +446,37 @@ class SyrConnectServer:
     async def handle_all_commands(self, request: web.Request) -> web.Response:
         """Handle GetAllCommands endpoint."""
         try:
+            tls_version = self._get_tls_version(request)
+            source_ip = self._get_source_ip(request)
+
+            # Always discover/report TLS tuples before payload parsing so legacy
+            # clients with malformed early payloads still appear in options.
+            if tls_version is not None:
+                pre_tuple = self._discover_legacy_tuple(source_ip, None)
+                self._remember_tls_version_for_tuple(pre_tuple, tls_version)
+                _LOGGER.debug(
+                    "Pre-parse TLS tuple discovered: tuple=%s tls=%s path=%s",
+                    pre_tuple,
+                    tls_version,
+                    request.path,
+                )
+
+            # Parse the POST data first so we can inspect MAC for TLSv1 tuple gating.
+            post_data = await request.post()
+            xml_data = post_data.get("xml", "")
+
+            if tls_version is not None:
+                mac = self._extract_mac_from_xml(xml_data)
+                if self._should_block_legacy_tls(
+                    source_ip,
+                    mac,
+                    request.path,
+                    tls_version,
+                ):
+                    return web.Response(status=403, text="legacy_tls_tuple_not_allowed")
+
             # Log detailed request information
-            client_ip = request.remote
+            client_ip = source_ip
             scheme = request.scheme  # 'http' or 'https'
             host = request.host
             _LOGGER.debug(
@@ -260,10 +485,6 @@ class SyrConnectServer:
             )
             _LOGGER.debug("Request headers: %s", dict(request.headers))
             
-            # Parse the POST data
-            post_data = await request.post()
-            xml_data = post_data.get("xml", "")
-
             if not xml_data:
                 _LOGGER.warning("Received GetAllCommands without xml parameter")
                 return web.Response(
@@ -298,6 +519,21 @@ class SyrConnectServer:
 
             # Get or create device state
             is_new_device = serial not in self.devices
+            if is_new_device and not self._is_legacy_tuple_approved(source_ip, properties.get(PROPERTY_MAC), tls_version):
+                _LOGGER.warning(
+                    "Deferring device creation for unapproved legacy tuple: serial=%s tuple=%s tls=%s",
+                    serial,
+                    self._format_legacy_tuple(source_ip, properties.get(PROPERTY_MAC)),
+                    tls_version,
+                )
+                response_data = self.protocol.create_command_request(BASIC_COMMANDS)
+                response_xml = self.protocol.generate_xml(response_data)
+                return web.Response(
+                    body=response_xml.encode("utf-8"),
+                    content_type="text/xml",
+                    charset="utf-8",
+                )
+
             if is_new_device:
                 _LOGGER.info("New device discovered: %s", serial)
                 device = DeviceState(serial)
@@ -394,6 +630,10 @@ class SyrConnectServer:
                 "http_port": self.http_port,
                 "https_port": self.https_port if self.use_https else None,
                 "use_https": self.use_https,
+                "legacy_tls_allowed_tuples": sorted(self.legacy_tls_allowed_tuples),
+                "legacy_tls_discovered_tuples": sorted(self.legacy_tls_discovered_tuples),
+                "legacy_tls_bootstrapped_tuples": sorted(self.legacy_tls_bootstrapped_tuples),
+                "legacy_tls_tuple_versions": dict(sorted(self.tls_tuple_max_version.items())),
                 "devices_count": len(self.devices),
                 "devices": devices_info,
             }
@@ -530,33 +770,21 @@ class SyrConnectServer:
         """Create SSL context (runs in thread pool executor)."""
         ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         ssl_context.load_cert_chain(self.cert_file, self.key_file)
-        self._apply_tls_policy(ssl_context, legacy_compat=self.legacy_tls_compat)
+        self._apply_tls_policy(ssl_context)
 
         return ssl_context
 
     @staticmethod
-    def _apply_tls_policy(ssl_context: ssl.SSLContext, legacy_compat: bool) -> None:
+    def _apply_tls_policy(
+        ssl_context: ssl.SSLContext,
+    ) -> None:
         """Apply TLS policy.
 
         Policy goals:
-        - Default: modern TLS (prefer TLS 1.3, allow TLS 1.2 fallback).
-        - Optional legacy mode: broaden compatibility for old device firmware.
+        - Accept TLS 1.0+ at handshake so legacy devices can connect.
+        - Enforce TLSv1 security in request handling via tuple allowlist.
         """
-        if legacy_compat:
-            ssl_context.minimum_version = ssl.TLSVersion.TLSv1
-            # Keep compatibility with older TLS stacks that require OpenSSL security
-            # level 0. This is intentionally opt-in and should be used only when needed.
-            try:
-                ssl_context.set_ciphers("DEFAULT:@SECLEVEL=0")
-            except ssl.SSLError as err:
-                _LOGGER.warning("Could not apply legacy cipher profile: %s", err)
-
-            _LOGGER.warning(
-                "Legacy TLS compatibility mode enabled: allows TLS 1.0+ and weaker ciphers"
-            )
-            return
-
-        ssl_context.minimum_version = ssl.TLSVersion.TLSv1_2
+        ssl_context.minimum_version = ssl.TLSVersion.TLSv1
 
         max_tls = getattr(ssl.TLSVersion, "TLSv1_3", None)
         if max_tls is not None:
@@ -564,8 +792,19 @@ class SyrConnectServer:
 
         ssl_context.options |= ssl.OP_NO_COMPRESSION
 
+        # OpenSSL 3.x disables TLSv1.0/1.1 by default (security level 1).
+        # Lower the cipher security level so legacy devices can negotiate TLSv1.
+        # Actual TLS version enforcement is done per-source-tuple in request handling.
+        try:
+            ssl_context.set_ciphers("DEFAULT:@SECLEVEL=0")
+        except ssl.SSLError as err:
+            _LOGGER.warning(
+                "Could not lower SSL cipher security level for legacy TLS: %s",
+                err,
+            )
+
         _LOGGER.debug(
-            "SSL context created with modern policy: min=%s, max=%s, default ciphers",
+            "SSL context created with compatibility policy: min=%s, max=%s",
             ssl_context.minimum_version.name,
             ssl_context.maximum_version.name if ssl_context.maximum_version else "system-default",
         )
