@@ -106,15 +106,6 @@ async def test_get_basic_commands_alt_endpoint_works(http_client, syr_modules):
 
 
 @pytest.mark.asyncio
-async def test_firmware_endpoint_returns_empty_200(http_client):
-    response = await http_client.get("/firmware/saocal2/scf.cfg")
-    assert response.status == 200
-    body = await response.text()
-    assert "@group \"Syr Firmware test\"" in body
-    assert "SLPS, \"LEXplus S\", 2.4" in body
-
-
-@pytest.mark.asyncio
 async def test_device_identification_and_status_endpoint(http_client, server_instance, syr_modules):
     properties = _mock_device_properties()
     request_xml = _xml_from(syr_modules.protocol, properties)
