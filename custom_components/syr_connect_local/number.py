@@ -123,7 +123,9 @@ async def async_setup_entry(
                 _LOGGER.info("Number platform: adding %d entities for %s", len(new_entities), serial)
                 async_add_entities(new_entities)
 
-    async_dispatcher_connect(hass, SIGNAL_NEW_DEVICE, _handle_new_device)
+    entry.async_on_unload(
+        async_dispatcher_connect(hass, SIGNAL_NEW_DEVICE, _handle_new_device)
+    )
 
 
 class SyrNumber(CoordinatorEntity, NumberEntity):

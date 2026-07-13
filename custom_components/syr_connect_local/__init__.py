@@ -19,6 +19,7 @@ from .const import (
     CONF_KEY_FILE,
     CONF_USE_HTTPS,
     CONF_DEBUG_ENDPOINTS,
+    CONF_LEGACY_TLS_ALLOWED_TUPLES,
     DATA_COORDINATOR,
     DATA_SERVER,
     DEFAULT_HTTPS_PORT,
@@ -62,6 +63,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     debug_endpoints = entry.options.get(
         CONF_DEBUG_ENDPOINTS, entry.data.get(CONF_DEBUG_ENDPOINTS, False)
     )
+    legacy_tls_allowed_tuples = entry.options.get(
+        CONF_LEGACY_TLS_ALLOWED_TUPLES,
+        entry.data.get(CONF_LEGACY_TLS_ALLOWED_TUPLES, []),
+    )
 
     # Provide sensible defaults for HTTPS cert/key if enabled but not set
     if use_https:
@@ -80,6 +85,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         cert_file=cert_file,
         key_file=key_file,
         enable_debug_endpoints=debug_endpoints,
+        legacy_tls_allowed_tuples=legacy_tls_allowed_tuples,
     )
 
     # Set up device discovery callback
@@ -129,6 +135,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Register services
     await _async_setup_services(hass, coordinator)
 
+    # Reload the integration when options change so server TLS policy updates
+    entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+
     _LOGGER.info("SYR Connect Local integration setup complete")
     return True
 
@@ -147,6 +156,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await server.stop()
 
     return unload_ok
+
+
+async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload the integration when config entry options change."""
+    _LOGGER.info("Config entry updated for %s; reloading integration", entry.entry_id)
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def _async_setup_services(
@@ -240,7 +255,7 @@ async def _async_resolve_or_create_certs(
         # 2) Generate self-signed certs with expected SYR hostnames
         target_cert = Path(cert_file or "/config/syr_cert.pem")
         target_key = Path(key_file or "/config/syr_key.pem")
-        created = await _async_generate_self_signed_cert(target_cert, target_key)
+        created = await _async_generate_self_signed_cert(hass, target_cert, target_key)
         if created:
             _LOGGER.info("Generated self-signed SYR HTTPS cert at %s", target_cert)
             return str(target_cert), str(target_key)
@@ -252,7 +267,20 @@ async def _async_resolve_or_create_certs(
         return None, None
 
 
-async def _async_generate_self_signed_cert(cert_path: Path, key_path: Path) -> bool:
+async def _async_generate_self_signed_cert(
+    hass: HomeAssistant,
+    cert_path: Path,
+    key_path: Path,
+) -> bool:
+    """Generate a self-signed RSA certificate for the SYR domains."""
+    return await hass.async_add_executor_job(
+        _generate_self_signed_cert_sync,
+        cert_path,
+        key_path,
+    )
+
+
+def _generate_self_signed_cert_sync(cert_path: Path, key_path: Path) -> bool:
     """Generate a self-signed RSA certificate for the SYR domains."""
     try:
         # Import cryptography lazily to avoid import cost if not needed

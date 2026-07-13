@@ -31,7 +31,8 @@
           "http_port": "HTTP Port",
           "https_port": "HTTPS Port",
           "use_https": "HTTPS aktivieren",
-          "debug_endpoints": "Debug-Endpunkte aktivieren"
+          "legacy_tls_blocking_enabled": "Unsicheres Legacy-TLS blockieren (< TLS 1.2)",
+          "legacy_tls_allowed_tuples": "Legacy-TLS fuer erkannte IP|MAC-Tupel erlauben"
         }
       }
     }

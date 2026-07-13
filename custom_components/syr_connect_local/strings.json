@@ -31,7 +31,8 @@
           "http_port": "HTTP Port",
           "https_port": "HTTPS Port",
           "use_https": "Enable HTTPS",
-          "debug_endpoints": "Enable Debug Endpoints"
+          "debug_endpoints": "Enable Debug Endpoints",
+          "legacy_tls_allowed_tuples": "Allow legacy TLS for discovered IP|MAC tuples"
         }
       }
     }
